@@ -10,11 +10,11 @@ async function main() {
   const passwordHash = await bcrypt.hash("admin123", 12);
 
   const admin = await prisma.employee.upsert({
-    where: { email: "admin@oliarchitecture.com" },
+    where: { email: "admin@oliarch.com" },
     update: {},
     create: {
       name: "OLI Admin",
-      email: "admin@oliarchitecture.com",
+      email: "admin@oliarch.com",
       passwordHash,
       role: Role.ADMIN,
       title: "Office Manager",
@@ -42,7 +42,7 @@ async function main() {
   console.log("Created sample projects");
   console.log("\nSeed complete!");
   console.log("\nAdmin credentials:");
-  console.log("  Email: admin@oliarchitecture.com");
+  console.log("  Email: admin@oliarch.com");
   console.log("  Password: admin123");
   console.log("\nIMPORTANT: Change the admin password after first login!");
 }
