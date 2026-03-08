@@ -14,54 +14,69 @@ export async function PUT(
   const timesheet = await db.timesheetWeek.findUnique({ where: { id } });
   if (!timesheet) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  // Only the owner can save (unless admin)
   if (timesheet.employeeId !== session.user.id && session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // Can only save DRAFT timesheets
   if (timesheet.status !== "DRAFT") {
     return NextResponse.json({ error: "Cannot edit a submitted timesheet" }, { status: 400 });
   }
 
   const { entries } = await req.json() as {
-    entries: { projectId: string; date: string; hours: number; notes?: string }[];
+    entries: {
+      projectId: string;
+      phase: string;
+      date: string;
+      hours: number;
+      absenceCode?: string | null;
+      notes?: string | null;
+    }[];
   };
 
-  // Upsert all entries
-  await db.$transaction(
-    entries
-      .filter((e) => e.hours > 0)
-      .map((e) =>
+  const activeEntries = entries.filter((e) => e.hours > 0 || e.absenceCode);
+  const emptyEntries = entries.filter((e) => e.hours === 0 && !e.absenceCode);
+
+  // Upsert active entries
+  if (activeEntries.length > 0) {
+    await db.$transaction(
+      activeEntries.map((e) =>
         db.timesheetEntry.upsert({
           where: {
-            timesheetWeekId_projectId_date: {
+            timesheetWeekId_projectId_phase_date: {
               timesheetWeekId: id,
               projectId: e.projectId,
+              phase: e.phase,
               date: new Date(e.date),
             },
           },
-          update: { hours: e.hours, notes: e.notes ?? null },
+          update: {
+            hours: e.hours,
+            absenceCode: e.absenceCode ?? null,
+            notes: e.notes ?? null,
+          },
           create: {
             timesheetWeekId: id,
             projectId: e.projectId,
+            phase: e.phase,
             date: new Date(e.date),
             hours: e.hours,
+            absenceCode: e.absenceCode ?? null,
             notes: e.notes ?? null,
           },
         })
       )
-  );
+    );
+  }
 
-  // Delete zero-hour entries
-  const zeroEntries = entries.filter((e) => e.hours === 0);
-  if (zeroEntries.length > 0) {
+  // Delete entries that were cleared
+  if (emptyEntries.length > 0) {
     await db.$transaction(
-      zeroEntries.map((e) =>
+      emptyEntries.map((e) =>
         db.timesheetEntry.deleteMany({
           where: {
             timesheetWeekId: id,
             projectId: e.projectId,
+            phase: e.phase,
             date: new Date(e.date),
           },
         })
@@ -69,7 +84,6 @@ export async function PUT(
     );
   }
 
-  // Update updatedAt
   const updated = await db.timesheetWeek.update({
     where: { id },
     data: { updatedAt: new Date() },

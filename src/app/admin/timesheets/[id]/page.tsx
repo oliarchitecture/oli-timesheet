@@ -43,19 +43,24 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
   const weekDays = getWeekDays(timesheet.weekStartDate);
   const weekEnd = weekDays[6];
 
-  const projectTotals = projects.map((p) => ({
-    name: p.name,
-    hours: timesheet.entries
-      .filter((e) => e.projectId === p.id)
-      .reduce((sum, e) => sum + e.hours, 0),
-  })).filter((p) => p.hours > 0);
+  const rowTotals: { name: string; phase: string; hours: number }[] = [];
+  for (const e of timesheet.entries) {
+    const project = projects.find((p) => p.id === e.projectId);
+    if (!project) continue;
+    const existing = rowTotals.find((r) => r.name === project.name && r.phase === e.phase);
+    if (existing) existing.hours += e.hours;
+    else rowTotals.push({ name: project.name, phase: e.phase, hours: e.hours });
+  }
+  const projectTotals = rowTotals.filter((r) => r.hours > 0);
 
   const totalHours = timesheet.entries.reduce((sum, e) => sum + e.hours, 0);
 
   const entryData = timesheet.entries.map((e) => ({
     projectId: e.projectId,
+    phase: e.phase,
     date: e.date.toISOString(),
     hours: e.hours,
+    absenceCode: e.absenceCode,
     notes: e.notes,
   }));
 
@@ -124,9 +129,12 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
                 <p className="text-sm text-neutral-500 py-4">No hours logged.</p>
               ) : (
                 <>
-                  {projectTotals.map((p) => (
-                    <div key={p.name} className="flex items-center justify-between py-2 border-b border-neutral-100">
-                      <span className="text-sm text-neutral-700">{p.name}</span>
+                  {projectTotals.map((p, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-neutral-100">
+                      <div>
+                        <span className="text-sm text-neutral-700">{p.name}</span>
+                        {p.phase && <span className="ml-2 text-xs text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded">{p.phase}</span>}
+                      </div>
                       <span className="text-sm font-semibold text-neutral-900">{p.hours}h</span>
                     </div>
                   ))}
