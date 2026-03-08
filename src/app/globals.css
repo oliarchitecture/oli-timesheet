@@ -1,36 +1,38 @@
 @import "tailwindcss";
 
+@theme {
+  /* OLI Architecture brand colors */
+  --color-primary-50: #FDF6E7;
+  --color-primary-100: #F9E9C4;
+  --color-primary-200: #F2D08A;
+  --color-primary-300: #EAB750;
+  --color-primary-400: #D9A030;
+  --color-primary-500: #C8922A;
+  --color-primary-600: #A57422;
+  --color-primary-700: #7D571A;
+  --color-primary-800: #543A12;
+  --color-primary-900: #2B1D09;
+
+  /* Neutral warm grays */
+  --color-neutral-50: #FAFAF8;
+  --color-neutral-100: #F5F4F0;
+  --color-neutral-200: #E8E6E0;
+  --color-neutral-300: #D1CECC;
+  --color-neutral-400: #A8A49F;
+  --color-neutral-500: #7E7A74;
+  --color-neutral-600: #5A564F;
+  --color-neutral-700: #3D3A34;
+  --color-neutral-800: #28251F;
+  --color-neutral-900: #141210;
+
+  /* Font */
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 30 8% 8%;
-    --card: 0 0% 100%;
-    --card-foreground: 30 8% 8%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 30 8% 8%;
-    --primary: 35 65% 48%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 30 15% 94%;
-    --secondary-foreground: 30 8% 20%;
-    --muted: 30 15% 95%;
-    --muted-foreground: 30 5% 45%;
-    --accent: 30 15% 94%;
-    --accent-foreground: 30 8% 20%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 15% 88%;
-    --input: 30 15% 88%;
-    --ring: 35 65% 48%;
-    --radius: 0.5rem;
-  }
-
-  * {
-    border-color: hsl(var(--border));
-  }
-
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    font-family: "Inter", system-ui, sans-serif;
+    background-color: var(--color-neutral-50);
+    color: var(--color-neutral-800);
+    font-family: var(--font-sans);
   }
 }
