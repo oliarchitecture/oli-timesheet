@@ -1,0 +1,5 @@
+GITHUB_USERNAME = "office@oliarch.com" 
+GITHUB_PASS = "OLIgithub123"
+
+# SUPABASE_USERNAME = "Connect with GitHub"
+SUPABASE_PASS = "OLIsupabase123"
