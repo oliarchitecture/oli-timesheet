@@ -82,14 +82,16 @@ model TimesheetEntry {
   id              String   @id @default(cuid())
   timesheetWeekId String
   projectId       String
+  phase           String   @default("")
   date            DateTime // specific calendar day (normalized to 00:00:00 UTC)
   hours           Float    @default(0)
+  absenceCode     String?  // H, V, S, C, B, R, H/D
   notes           String?
 
   timesheetWeek TimesheetWeek @relation(fields: [timesheetWeekId], references: [id], onDelete: Cascade)
   project       Project       @relation(fields: [projectId], references: [id])
 
-  @@unique([timesheetWeekId, projectId, date])
+  @@unique([timesheetWeekId, projectId, phase, date])
 }
 
 model LeaveRequest {
