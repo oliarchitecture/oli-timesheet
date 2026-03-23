@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Employee {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         Role      @default(EMPLOYEE)
+  title        String?
+  phone        String?
+  startDate    DateTime?
+  photoUrl     String?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  timesheets       TimesheetWeek[]
+  timesheetReviews TimesheetWeek[] @relation("TimesheetReviewer")
+  leaveRequests    LeaveRequest[]
+  leaveReviews     LeaveRequest[]  @relation("LeaveReviewer")
+  leaveBalances    LeaveBalance[]
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+model Project {
+  id         String        @id @default(cuid())
+  name       String
+  clientName String?
+  code       String?       @unique
+  status     ProjectStatus @default(ACTIVE)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  entries TimesheetEntry[]
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+}
+
+model TimesheetWeek {
+  id            String          @id @default(cuid())
+  employeeId    String
+  weekStartDate DateTime        // Monday of the week (normalized to 00:00:00 UTC)
+  status        TimesheetStatus @default(DRAFT)
+  reviewedById  String?
+  reviewComment String?
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  employee   Employee        @relation(fields: [employeeId], references: [id])
+  reviewer   Employee?       @relation("TimesheetReviewer", fields: [reviewedById], references: [id])
+  entries    TimesheetEntry[]
+
+  @@unique([employeeId, weekStartDate])
+}
+
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+model TimesheetEntry {
+  id              String   @id @default(cuid())
+  timesheetWeekId String
+  projectId       String
+  phase           String   @default("")
+  date            DateTime // specific calendar day (normalized to 00:00:00 UTC)
+  hours           Float    @default(0)
+  absenceCode     String?  // H, V, S, C, B, R, H/D
+  notes           String?
+
+  timesheetWeek TimesheetWeek @relation(fields: [timesheetWeekId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id])
+
+  @@unique([timesheetWeekId, projectId, phase, date])
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  employeeId    String
+  type          LeaveType
+  startDate     DateTime
+  endDate       DateTime
+  reason        String?
+  status        LeaveStatus @default(PENDING)
+  reviewedById  String?
+  reviewComment String?
+  createdAt     DateTime    @default(now())
+  reviewedAt    DateTime?
+
+  employee Employee  @relation(fields: [employeeId], references: [id])
+  reviewer Employee? @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+}
+
+enum LeaveType {
+  VACATION
+  SICK
+  PERSONAL
+  OTHER
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model LeaveBalance {
+  id         String    @id @default(cuid())
+  employeeId String
+  year       Int
+  type       LeaveType
+  totalDays  Float
+  usedDays   Float     @default(0)
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, year, type])
+}

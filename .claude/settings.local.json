@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \":*)",
+      "Bash(npm install)",
+      "Bash(npx shadcn@latest init --yes --base-color zinc)",
+      "Bash(npx shadcn@latest init --yes)",
+      "Bash(printf '\\\\n\\\\n\\\\n\\\\n\\\\n\\\\n')",
+      "Bash(npx shadcn@latest add button input label select dialog tabs badge toast avatar separator card --yes)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\\\(app\\)\\\\timesheets\\\\[id]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\admin\\\\employees\\\\[id]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\admin\\\\timesheets\\\\[id]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\admin\\\\leave\\\\[id]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\api\\\\auth\\\\[...nextauth]\")",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx prisma generate)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\api\\\\timesheets\\\\[id]\\\\entries\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\api\\\\timesheets\\\\[id]\\\\submit\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\\\\app\\\\api\\\\timesheets\\\\[id]\\\\review\")",
+      "Bash(npm run build)",
+      "Bash(npm view next dist-tags --json)",
+      "Bash(npm run db:push)",
+      "Bash(npx prisma db push --accept-data-loss)",
+      "Bash(npm run db:seed)",
+      "Bash(npx prisma db push)"
+    ]
+  }
+}
