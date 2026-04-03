@@ -7,6 +7,8 @@ import { StatusProgress } from "@/components/timesheet/StatusProgress";
 import { TimesheetGrid } from "@/components/timesheet/TimesheetGrid";
 import { formatDate, formatDateShort, getWeekDays } from "@/lib/utils";
 import { Calendar } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
+import { DeleteTimesheetPageButton } from "@/components/timesheet/DeleteTimesheetPageButton";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   DRAFT: "secondary",
@@ -70,6 +72,10 @@ export default async function TimesheetPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="space-y-6 max-w-5xl">
+      <div className="flex items-center justify-between">
+        <BackButton />
+        {timesheet.status === "DRAFT" && <DeleteTimesheetPageButton timesheetId={id} />}
+      </div>
       {/* Header */}
       <div className="bg-white rounded-lg border border-neutral-200 p-5">
         <div className="flex items-start justify-between flex-wrap gap-4">

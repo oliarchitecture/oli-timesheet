@@ -34,14 +34,14 @@ export default async function AdminLeavePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-neutral-900">Leave Requests</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">PTO Requests</h2>
         <p className="text-sm text-neutral-500 mt-0.5">{pending.length} pending · {requests.length} total</p>
       </div>
 
       <Card>
         <CardContent className="p-0">
           {requests.length === 0 ? (
-            <p className="text-sm text-neutral-500 text-center py-10">No leave requests yet.</p>
+            <p className="text-sm text-neutral-500 text-center py-10">No PTO requests yet.</p>
           ) : (
             <div className="divide-y divide-neutral-100">
               {requests.map((lr: LeaveRequest & { employee: { name: string } }) => (

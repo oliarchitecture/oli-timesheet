@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { EmployeeEditForm } from "./EmployeeEditForm";
+import { PTOBalancesForm } from "./PTOBalancesForm";
 import { formatDate } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -48,26 +49,13 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
       <EmployeeEditForm employee={employee} />
 
-      {/* Leave balances */}
+      {/* PTO Balances */}
       <Card>
         <CardHeader>
-          <CardTitle>Leave Balances ({new Date().getFullYear()})</CardTitle>
+          <CardTitle>PTO Balances ({new Date().getFullYear()})</CardTitle>
         </CardHeader>
         <CardContent>
-          {leaveBalances.length === 0 ? (
-            <p className="text-sm text-neutral-500">No leave balances configured. They will be created automatically when leave is requested.</p>
-          ) : (
-            <div className="space-y-2">
-              {leaveBalances.map((lb) => (
-                <div key={lb.id} className="flex items-center justify-between py-1.5 border-b border-neutral-100 last:border-0">
-                  <span className="text-sm text-neutral-700 capitalize">{lb.type.toLowerCase()}</span>
-                  <span className="text-sm font-medium text-neutral-900">
-                    {lb.totalDays - lb.usedDays} remaining / {lb.totalDays} total
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <PTOBalancesForm employeeId={id} balances={leaveBalances} />
         </CardContent>
       </Card>
     </div>

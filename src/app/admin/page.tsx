@@ -65,7 +65,7 @@ export default async function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-neutral-900">{pendingLeave.length}</p>
-                <p className="text-xs text-neutral-500">Leave requests pending</p>
+                <p className="text-xs text-neutral-500">PTO requests pending</p>
               </div>
             </div>
           </CardContent>
@@ -138,7 +138,7 @@ export default async function AdminDashboardPage() {
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle>Pending Leave Requests</CardTitle>
+              <CardTitle>Pending PTO Requests</CardTitle>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/admin/leave">
                   View all <ChevronRight className="h-3 w-3" />
@@ -148,7 +148,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             {pendingLeave.length === 0 ? (
-              <p className="text-sm text-neutral-500 text-center py-6">No pending leave requests.</p>
+              <p className="text-sm text-neutral-500 text-center py-6">No pending PTO requests.</p>
             ) : (
               <div className="divide-y divide-neutral-100">
                 {pendingLeave.map((lr: LeaveRequest & { employee: { name: string } }) => (

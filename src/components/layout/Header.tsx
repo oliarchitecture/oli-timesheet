@@ -21,9 +21,7 @@ export function Header({ userName, userEmail, userPhoto, pageTitle }: HeaderProp
     .slice(0, 2);
 
   return (
-    <header className="flex items-center justify-between h-14 px-6 bg-white border-b border-neutral-200 shrink-0">
-      <h1 className="text-base font-semibold text-neutral-800">{pageTitle}</h1>
-
+    <header className="flex items-center justify-end h-14 px-6 bg-white border-b border-neutral-200 shrink-0">
       <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
           <p className="text-sm font-medium text-neutral-800 leading-tight">{userName}</p>

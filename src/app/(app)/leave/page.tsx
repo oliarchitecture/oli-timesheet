@@ -5,8 +5,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, CalendarDays } from "lucide-react";
 import { formatDate, daysBetween } from "@/lib/utils";
+import { DeletePTOButton } from "@/components/leave/DeletePTOButton";
 import type { LeaveRequest } from "@prisma/client";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
@@ -18,11 +19,18 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
 const leaveTypeLabel: Record<string, string> = {
   VACATION: "Vacation",
   SICK: "Sick",
-  PERSONAL: "Personal",
+  PERSONAL: "Comp",
   OTHER: "Other",
 };
 
-export default async function LeavePage() {
+const leaveTypeColor: Record<string, string> = {
+  VACATION: "bg-sky-50 border-sky-200 text-sky-700",
+  SICK: "bg-blue-50 border-blue-200 text-blue-700",
+  PERSONAL: "bg-purple-50 border-purple-200 text-purple-700",
+  OTHER: "bg-neutral-50 border-neutral-200 text-neutral-700",
+};
+
+export default async function PTOPage() {
   const session = await auth();
   if (!session) redirect("/login");
 
@@ -40,40 +48,54 @@ export default async function LeavePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-neutral-900">My Leave</h2>
-          <p className="text-sm text-neutral-500 mt-0.5">Manage leave requests and view balances</p>
+          <h2 className="text-xl font-semibold text-neutral-900">My PTO</h2>
+          <p className="text-sm text-neutral-500 mt-0.5">Manage PTO requests and view balances</p>
         </div>
         <Button asChild>
           <Link href="/leave/new">
             <Plus className="h-4 w-4" />
-            Request Leave
+            Request PTO
           </Link>
         </Button>
       </div>
 
-      {/* Balances */}
-      {balances.length > 0 && (
+      {/* PTO Balances */}
+      {balances.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {balances.map((b) => (
-            <Card key={b.id}>
-              <CardContent className="pt-4 pb-4">
-                <p className="text-xs text-neutral-500 capitalize">{b.type.toLowerCase()}</p>
-                <p className="text-xl font-bold text-neutral-900 mt-0.5">{b.totalDays - b.usedDays}</p>
-                <p className="text-xs text-neutral-400">of {b.totalDays} days remaining</p>
-              </CardContent>
-            </Card>
-          ))}
+          {balances.map((b) => {
+            const remaining = b.totalDays - b.usedDays;
+            return (
+              <div
+                key={b.id}
+                className={`rounded-xl border p-4 ${leaveTypeColor[b.type] ?? "bg-neutral-50 border-neutral-200 text-neutral-700"}`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <CalendarDays className="h-4 w-4 opacity-70" />
+                  <p className="text-xs font-medium capitalize">{b.type === "PERSONAL" ? "Comp" : b.type.toLowerCase()}</p>
+                </div>
+                <p className="text-3xl font-bold">{remaining}</p>
+                <p className="text-xs opacity-70 mt-0.5">of {b.totalDays} days remaining</p>
+                {b.usedDays > 0 && (
+                  <p className="text-xs opacity-60 mt-1">{b.usedDays} used</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-6 py-5">
+          <p className="text-sm text-neutral-500">No PTO balances set up yet. Contact your administrator.</p>
         </div>
       )}
 
-      {/* Requests */}
+      {/* PTO Requests */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle>Leave Requests</CardTitle>
+          <CardTitle>PTO Requests</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {requests.length === 0 ? (
-            <p className="text-sm text-neutral-500 text-center py-8">No leave requests yet.</p>
+            <p className="text-sm text-neutral-500 text-center py-8">No PTO requests yet.</p>
           ) : (
             <div className="divide-y divide-neutral-100">
               {requests.map((lr: LeaveRequest) => (
@@ -90,7 +112,10 @@ export default async function LeavePage() {
                       <p className="text-xs text-amber-700 mt-0.5">Comment: {lr.reviewComment}</p>
                     )}
                   </div>
-                  <Badge variant={statusVariant[lr.status] ?? "secondary"}>{lr.status}</Badge>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant={statusVariant[lr.status] ?? "secondary"}>{lr.status}</Badge>
+                    {lr.status === "PENDING" && <DeletePTOButton requestId={lr.id} />}
+                  </div>
                 </div>
               ))}
             </div>

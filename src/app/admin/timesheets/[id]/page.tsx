@@ -8,6 +8,7 @@ import { TimesheetGrid } from "@/components/timesheet/TimesheetGrid";
 import { ReviewActions } from "@/components/timesheet/ReviewActions";
 import { formatDate, getWeekDays } from "@/lib/utils";
 import { Calendar } from "lucide-react";
+import { BackButton } from "@/components/ui/back-button";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   DRAFT: "secondary",
@@ -66,6 +67,7 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
 
   return (
     <div className="space-y-6 max-w-5xl">
+      <BackButton />
       {/* Header */}
       <div className="bg-white rounded-lg border border-neutral-200 p-5">
         <div className="flex items-start justify-between flex-wrap gap-4">

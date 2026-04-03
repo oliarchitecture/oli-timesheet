@@ -102,7 +102,7 @@ export default async function DashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-neutral-900">{pendingLeave}</p>
-                <p className="text-xs text-neutral-500">Pending leave requests</p>
+                <p className="text-xs text-neutral-500">Pending PTO requests</p>
               </div>
             </div>
           </CardContent>

@@ -5,39 +5,66 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import type { TimesheetWeek, Employee } from "@prisma/client";
+import { TimesheetFilters } from "./TimesheetFilters";
+import type { TimesheetWeek } from "@prisma/client";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
-  DRAFT: "secondary",
   SUBMITTED: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
 };
 
-export default async function AdminTimesheetsPage({ searchParams }: { searchParams: Promise<{ status?: string; employeeId?: string }> }) {
+export default async function AdminTimesheetsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; employeeId?: string; year?: string; month?: string }>;
+}) {
   const session = await auth();
   if (!session || session.user.role !== "ADMIN") redirect("/dashboard");
 
-  const { status, employeeId } = await searchParams;
+  const { status, employeeId, year, month } = await searchParams;
+
+  // Build date range filter from year/month
+  let dateFilter = {};
+  if (year || month) {
+    const y = year ? parseInt(year) : new Date().getFullYear();
+    const m = month ? parseInt(month) - 1 : undefined;
+    if (m !== undefined) {
+      const start = new Date(Date.UTC(y, m, 1));
+      const end = new Date(Date.UTC(y, m + 1, 0));
+      dateFilter = { weekStartDate: { gte: start, lte: end } };
+    } else {
+      const start = new Date(Date.UTC(y, 0, 1));
+      const end = new Date(Date.UTC(y, 11, 31));
+      dateFilter = { weekStartDate: { gte: start, lte: end } };
+    }
+  }
 
   const timesheets = await db.timesheetWeek.findMany({
     where: {
-      ...(status ? { status: status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" } : {}),
+      status: status ? status as "SUBMITTED" | "APPROVED" | "REJECTED" : { not: "DRAFT" },
       ...(employeeId ? { employeeId } : {}),
+      ...dateFilter,
     },
     include: {
       employee: { select: { name: true, email: true } },
       entries: true,
     },
-    orderBy: [{ status: "asc" }, { weekStartDate: "desc" }],
+    orderBy: [{ weekStartDate: "desc" }, { status: "asc" }],
   });
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">All Timesheets</h2>
-        <p className="text-sm text-neutral-500 mt-0.5">{timesheets.length} total</p>
+        <p className="text-sm text-neutral-500 mt-0.5">{timesheets.length} timesheet{timesheets.length !== 1 ? "s" : ""}</p>
       </div>
+
+      <TimesheetFilters
+        currentYear={year ?? ""}
+        currentMonth={month ?? ""}
+        currentStatus={status ?? ""}
+      />
 
       <Card>
         <CardContent className="p-0">

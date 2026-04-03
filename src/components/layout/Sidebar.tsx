@@ -25,7 +25,7 @@ interface NavItem {
 const employeeNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/timesheets", label: "Timesheets", icon: Clock },
-  { href: "/leave", label: "Leave", icon: Calendar },
+  { href: "/leave", label: "PTO", icon: Calendar },
   { href: "/profile", label: "My Profile", icon: Settings },
 ];
 
@@ -34,7 +34,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/employees", label: "Employees", icon: Users },
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/timesheets", label: "Timesheets", icon: Clock },
-  { href: "/admin/leave", label: "Leave Requests", icon: Calendar },
+  { href: "/admin/leave", label: "PTO Requests", icon: Calendar },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 
@@ -49,16 +49,12 @@ export function Sidebar({ role }: SidebarProps) {
   return (
     <aside className="flex flex-col w-60 min-h-screen bg-neutral-800 text-white">
       {/* Logo */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-neutral-700">
-        <div className="flex items-center justify-center w-8 h-8 rounded bg-primary-500 text-white font-bold text-sm shrink-0">
-          OLI
-        </div>
-        <div>
-          <p className="text-sm font-semibold leading-tight">OLI Architecture</p>
-          <p className="text-xs text-neutral-400 leading-tight">
-            {role === "ADMIN" ? "Admin" : "Employee"} Portal
-          </p>
-        </div>
+      <div className="flex flex-col items-center px-5 py-5 border-b border-neutral-700">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/sidebar-logo.png" alt="OLI Architecture" style={{ width: 100, height: "auto" }} />
+        <p className="text-xs text-neutral-400 mt-2">
+          {role === "ADMIN" ? "Admin" : "Employee"} Portal
+        </p>
       </div>
 
       {/* Navigation */}

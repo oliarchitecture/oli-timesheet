@@ -51,7 +51,7 @@ export function LeaveReviewActions({ leaveId }: { leaveId: string }) {
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Reject Leave Request</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Reject PTO Request</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="comment">Reason for rejection</Label>

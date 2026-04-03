@@ -335,7 +335,7 @@ export function TimesheetGrid({
               return (
                 <tr key={key} className={cn("border-b border-neutral-100", idx % 2 === 0 ? "bg-white" : "bg-neutral-50/40")}>
                   {/* Project name */}
-                  <td className="px-3 py-2 text-neutral-700 font-medium text-xs leading-snug max-w-[192px]">
+                  <td className="px-3 py-2 text-neutral-900 font-semibold text-sm leading-snug max-w-[192px]">
                     <span title={project?.name} className="block truncate">{project?.name ?? "—"}</span>
                   </td>
 

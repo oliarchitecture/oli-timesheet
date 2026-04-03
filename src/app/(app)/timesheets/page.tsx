@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { formatDate, getWeekStart } from "@/lib/utils";
+import { DeleteTimesheetButton } from "@/components/timesheet/DeleteTimesheetButton";
 import type { TimesheetWeek } from "@prisma/client";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
@@ -68,12 +69,8 @@ export default async function TimesheetsPage() {
                 const weekEnd = new Date(ts.weekStartDate);
                 weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
                 return (
-                  <Link
-                    key={ts.id}
-                    href={`/timesheets/${ts.id}`}
-                    className="flex items-center justify-between px-6 py-4 hover:bg-neutral-50 transition-colors"
-                  >
-                    <div>
+                  <div key={ts.id} className="flex items-center justify-between px-6 py-4 hover:bg-neutral-50 transition-colors">
+                    <Link href={`/timesheets/${ts.id}`} className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-neutral-800">
                         Week of {formatDate(ts.weekStartDate)} – {formatDate(weekEnd)}
                       </p>
@@ -82,9 +79,12 @@ export default async function TimesheetsPage() {
                         {ts.submittedAt ? ` · Submitted ${formatDate(ts.submittedAt)}` : ""}
                         {ts.reviewedAt ? ` · Reviewed ${formatDate(ts.reviewedAt)}` : ""}
                       </p>
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={statusVariant[ts.status] ?? "secondary"}>{ts.status}</Badge>
+                      {ts.status === "DRAFT" && <DeleteTimesheetButton timesheetId={ts.id} />}
                     </div>
-                    <Badge variant={statusVariant[ts.status] ?? "secondary"}>{ts.status}</Badge>
-                  </Link>
+                  </div>
                 );
               })}
             </div>

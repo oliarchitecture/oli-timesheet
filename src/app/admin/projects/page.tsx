@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import type { Project } from "@prisma/client";
 import { AddProjectDialog } from "./AddProjectDialog";
+import { ProjectActions } from "./ProjectActions";
 
 const statusVariant: Record<string, "success" | "secondary" | "warning"> = {
   ACTIVE: "success",
@@ -55,6 +56,7 @@ export default async function ProjectsPage() {
                     <span className="text-xs text-neutral-400">
                       Added {formatDate(p.createdAt)}
                     </span>
+                    <ProjectActions project={p} />
                   </div>
                 </div>
               ))}

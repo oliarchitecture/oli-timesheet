@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate, daysBetween } from "@/lib/utils";
 import { LeaveReviewActions } from "./LeaveReviewActions";
+import { BackButton } from "@/components/ui/back-button";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   PENDING: "warning",
@@ -38,8 +39,9 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
 
   return (
     <div className="space-y-6 max-w-xl">
+      <BackButton />
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-neutral-900">Leave Request</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">PTO Request</h2>
         <Badge variant={statusVariant[request.status] ?? "secondary"}>{request.status}</Badge>
       </div>
 

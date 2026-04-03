@@ -66,7 +66,7 @@ export default function NewLeaveRequestPage() {
         <Button variant="ghost" size="icon" asChild className="h-8 w-8">
           <Link href="/leave"><ArrowLeft className="h-4 w-4" /></Link>
         </Button>
-        <h2 className="text-xl font-semibold text-neutral-900">New Leave Request</h2>
+        <h2 className="text-xl font-semibold text-neutral-900">New PTO Request</h2>
       </div>
 
       <Card>
