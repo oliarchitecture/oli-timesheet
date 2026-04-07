@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Clock, Calendar, FolderKanban, ChevronRight } from "lucide-react";
+import { Users, Clock, Calendar, FolderKanban, ChevronRight, Receipt } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import type { TimesheetWeek, Employee, LeaveRequest } from "@prisma/client";
 
@@ -16,6 +16,7 @@ export default async function AdminDashboardPage() {
   const [
     pendingTimesheets,
     pendingLeave,
+    pendingExpenses,
     activeProjects,
     activeEmployees,
   ] = await Promise.all([
@@ -31,6 +32,15 @@ export default async function AdminDashboardPage() {
       orderBy: { createdAt: "asc" },
       take: 10,
     }),
+    db.expenseReport.findMany({
+      where: { status: "SUBMITTED" },
+      include: {
+        employee: { select: { name: true } },
+        items: { select: { amount: true } },
+      },
+      orderBy: { submittedAt: "asc" },
+      take: 10,
+    }),
     db.project.count({ where: { status: "ACTIVE" } }),
     db.employee.count({ where: { isActive: true } }),
   ]);
@@ -43,7 +53,7 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-5 pb-5">
             <div className="flex items-center gap-3">
@@ -66,6 +76,19 @@ export default async function AdminDashboardPage() {
               <div>
                 <p className="text-2xl font-bold text-neutral-900">{pendingLeave.length}</p>
                 <p className="text-xs text-neutral-500">PTO requests pending</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-orange-50 rounded-lg">
+                <Receipt className="h-4 w-4 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-neutral-900">{pendingExpenses.length}</p>
+                <p className="text-xs text-neutral-500">Expenses pending</p>
               </div>
             </div>
           </CardContent>
@@ -98,7 +121,7 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Pending timesheets */}
         <Card>
           <CardHeader className="pb-3">
@@ -166,6 +189,45 @@ export default async function AdminDashboardPage() {
                     <Badge variant="warning">Review</Badge>
                   </Link>
                 ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        {/* Pending expenses */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle>Pending Expenses</CardTitle>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/admin/expenses?status=SUBMITTED">
+                  View all <ChevronRight className="h-3 w-3" />
+                </Link>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {pendingExpenses.length === 0 ? (
+              <p className="text-sm text-neutral-500 text-center py-6">No pending expense reports.</p>
+            ) : (
+              <div className="divide-y divide-neutral-100">
+                {pendingExpenses.map((r) => {
+                  const total = r.items.reduce((s: number, i: { amount: number }) => s + i.amount, 0);
+                  return (
+                    <Link
+                      key={r.id}
+                      href={`/admin/expenses/${r.id}`}
+                      className="flex items-center justify-between px-5 py-3 hover:bg-neutral-50 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-neutral-800">{r.employee.name}</p>
+                        <p className="text-xs text-neutral-500">
+                          {["January","February","March","April","May","June","July","August","September","October","November","December"][r.month - 1]} {r.year} · ${total.toFixed(2)}
+                        </p>
+                      </div>
+                      <Badge variant="warning">Review</Badge>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>

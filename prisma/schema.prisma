@@ -27,6 +27,8 @@ model Employee {
   leaveRequests    LeaveRequest[]
   leaveReviews     LeaveRequest[]  @relation("LeaveReviewer")
   leaveBalances    LeaveBalance[]
+  expenseReports   ExpenseReport[]
+  expenseReviews   ExpenseReport[] @relation("ExpenseReviewer")
 }
 
 enum Role {
@@ -43,7 +45,8 @@ model Project {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  entries TimesheetEntry[]
+  entries      TimesheetEntry[]
+  expenseItems ExpenseItem[]
 }
 
 enum ProjectStatus {
@@ -135,4 +138,67 @@ model LeaveBalance {
   employee Employee @relation(fields: [employeeId], references: [id])
 
   @@unique([employeeId, year, type])
+}
+
+model ExpenseReport {
+  id            String        @id @default(cuid())
+  employeeId    String
+  month         Int
+  year          Int
+  status        ExpenseStatus @default(DRAFT)
+  advanceAmount Float         @default(0)
+  notes         String?
+  reviewedById  String?
+  reviewComment String?
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  employee  Employee          @relation(fields: [employeeId], references: [id])
+  reviewer  Employee?         @relation("ExpenseReviewer", fields: [reviewedById], references: [id])
+  items     ExpenseItem[]
+  documents ExpenseDocument[]
+
+  @@unique([employeeId, month, year])
+}
+
+model ExpenseItem {
+  id               String          @id @default(cuid())
+  expenseReportId  String
+  projectId        String
+  date             DateTime
+  category         ExpenseCategory
+  otherDescription String?
+  description      String
+  amount           Float
+
+  expenseReport ExpenseReport @relation(fields: [expenseReportId], references: [id], onDelete: Cascade)
+  project       Project       @relation(fields: [projectId], references: [id])
+}
+
+model ExpenseDocument {
+  id              String   @id @default(cuid())
+  expenseReportId String
+  fileName        String
+  fileUrl         String
+  fileSize        Int?
+  mimeType        String?
+  uploadedAt      DateTime @default(now())
+
+  expenseReport ExpenseReport @relation(fields: [expenseReportId], references: [id], onDelete: Cascade)
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum ExpenseCategory {
+  TRANSPORTATION
+  MEALS
+  ACCOMMODATION
+  OTHER
 }

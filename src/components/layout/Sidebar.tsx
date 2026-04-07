@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   ChevronRight,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,7 @@ const employeeNav: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/timesheets", label: "Timesheets", icon: Clock },
   { href: "/leave", label: "PTO", icon: Calendar },
+  { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/profile", label: "My Profile", icon: Settings },
 ];
 
@@ -35,6 +37,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/projects", label: "Projects", icon: FolderKanban },
   { href: "/admin/timesheets", label: "Timesheets", icon: Clock },
   { href: "/admin/leave", label: "PTO Requests", icon: Calendar },
+  { href: "/admin/expenses", label: "Expenses", icon: Receipt },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 

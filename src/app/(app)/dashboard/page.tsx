@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Calendar, Plus, ChevronRight } from "lucide-react";
+import { Clock, Calendar, Plus, ChevronRight, Receipt } from "lucide-react";
 import { getWeekStart, formatDate } from "@/lib/utils";
 import type { TimesheetWeek } from "@prisma/client";
 
@@ -44,6 +44,14 @@ export default async function DashboardPage() {
     where: { employeeId: session.user.id, status: "PENDING" },
   });
 
+  // Recent expense reports
+  const recentExpenses = await db.expenseReport.findMany({
+    where: { employeeId: session.user.id },
+    orderBy: [{ year: "desc" }, { month: "desc" }],
+    take: 3,
+    include: { items: { select: { amount: true } } },
+  });
+
   const statusColors: Record<string, "success" | "warning" | "info" | "destructive" | "secondary"> = {
     DRAFT: "secondary",
     SUBMITTED: "warning",
@@ -63,7 +71,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -107,6 +115,20 @@ export default async function DashboardPage() {
             </div>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-green-50 rounded-lg">
+                <Receipt className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-neutral-900">{recentExpenses.length}</p>
+                <p className="text-xs text-neutral-500">Expense reports</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick actions */}
@@ -123,8 +145,16 @@ export default async function DashboardPage() {
             Request Leave
           </Link>
         </Button>
+        <Button variant="outline" asChild>
+          <Link href="/expenses/new">
+            <Receipt className="h-4 w-4" />
+            New Expense Report
+          </Link>
+        </Button>
       </div>
 
+      {/* Recent timesheets + expenses side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Recent timesheets */}
       <Card>
         <CardHeader className="pb-3">
@@ -172,6 +202,52 @@ export default async function DashboardPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Recent expenses */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle>Recent Expenses</CardTitle>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/expenses">
+                View all <ChevronRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {recentExpenses.length === 0 ? (
+            <p className="text-sm text-neutral-500 text-center py-4">
+              No expense reports yet.{" "}
+              <Link href="/expenses/new" className="text-primary-600 hover:underline">
+                Create your first one
+              </Link>
+            </p>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {recentExpenses.map((r) => {
+                const total = r.items.reduce((s, i) => s + i.amount, 0);
+                return (
+                  <Link
+                    key={r.id}
+                    href={`/expenses/${r.id}`}
+                    className="flex items-center justify-between py-3 hover:bg-neutral-50 -mx-2 px-2 rounded transition-colors"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">
+                        {["January","February","March","April","May","June","July","August","September","October","November","December"][r.month - 1]} {r.year}
+                      </p>
+                      <p className="text-xs text-neutral-500">${total.toFixed(2)}</p>
+                    </div>
+                    <Badge variant={statusColors[r.status] ?? "secondary"}>{r.status}</Badge>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      </div>
     </div>
   );
 }
