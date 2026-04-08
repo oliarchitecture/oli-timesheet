@@ -122,7 +122,7 @@ npm run db:seed
 
 The seed creates a default admin account:
 - **Email:** `admin@oli.com`
-- **Password:** `password123`
+- **Password:** `admin123` *(change this immediately after first login)*
 
 ### 4. Run locally
 
