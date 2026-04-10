@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useImperativeHandle, forwardRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { cn, formatDateShort, getWeekDays, isSameDay, DAYS_OF_WEEK } from "@/lib/utils";
@@ -54,6 +54,15 @@ interface TimesheetGridProps {
   status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
   isAdmin?: boolean;
   lastSaved?: Date | null;
+  showSubmit?: boolean;
+  onSaved?: () => void;
+  periodStart?: Date;
+  periodEnd?: Date;
+}
+
+export interface TimesheetGridHandle {
+  save: () => Promise<void>;
+  isDirty: boolean;
 }
 
 function rowKey(r: ActiveRow) { return `${r.projectId}|${r.phase}`; }
@@ -132,7 +141,7 @@ function CellInput({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function TimesheetGrid({
+export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>(function TimesheetGrid({
   timesheetId,
   weekStart,
   projects,
@@ -140,16 +149,27 @@ export function TimesheetGrid({
   status,
   isAdmin = false,
   lastSaved,
-}: TimesheetGridProps) {
+  showSubmit = true,
+  onSaved,
+  periodStart,
+  periodEnd,
+}, ref) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [savedAt, setSavedAt] = useState<Date | null>(lastSaved ?? null);
   const [error, setError] = useState("");
+  const [isDirty, setIsDirty] = useState(false);
 
   const weekDays = getWeekDays(weekStart);
   const isReadOnly = status === "SUBMITTED" || status === "APPROVED" || (isAdmin && status !== "DRAFT");
+
+  function isBlocked(day: Date): boolean {
+    if (periodStart && day.getTime() < periodStart.getTime()) return true;
+    if (periodEnd && day.getTime() > periodEnd.getTime()) return true;
+    return false;
+  }
 
   // Derive initial active rows from existing entries
   const initialRows: ActiveRow[] = [];
@@ -210,6 +230,7 @@ export function TimesheetGrid({
 
   function setCellValue(projectId: string, phase: string, date: Date, hours: number, absenceCode: string | null) {
     const dateStr = date.toISOString();
+    setIsDirty(true);
     setLocalEntries((prev) => {
       const exists = prev.find((e) => e.projectId === projectId && e.phase === phase && isSameDay(e.date, date));
       if (exists) {
@@ -253,6 +274,8 @@ export function TimesheetGrid({
       });
       if (!res.ok) throw new Error("Save failed");
       setSavedAt(new Date());
+      setIsDirty(false);
+      onSaved?.();
       startTransition(() => router.refresh());
     } catch {
       setError("Failed to save. Please try again.");
@@ -286,6 +309,11 @@ export function TimesheetGrid({
     }
   }
 
+  useImperativeHandle(ref, () => ({
+    isDirty,
+    save: handleSave,
+  }));
+
   return (
     <div className="space-y-4">
       {/* Legend */}
@@ -305,12 +333,15 @@ export function TimesheetGrid({
             <tr className="bg-neutral-100 border-b border-neutral-200">
               <th className="text-left px-3 py-3 font-semibold text-neutral-600 w-48">Project</th>
               <th className="text-left px-2 py-3 font-semibold text-neutral-600 w-36">Phase</th>
-              {weekDays.map((day, i) => (
-                <th key={i} className="text-center px-1 py-3 font-semibold text-neutral-600 min-w-[68px]">
-                  <div>{DAYS_OF_WEEK[i]}</div>
-                  <div className="text-xs font-normal text-neutral-400 mt-0.5">{formatDateShort(day)}</div>
-                </th>
-              ))}
+              {weekDays.map((day, i) => {
+                const blocked = isBlocked(day);
+                return (
+                  <th key={i} className={cn("text-center px-1 py-3 font-semibold min-w-[68px]", blocked ? "bg-neutral-50 text-neutral-300" : "text-neutral-600")}>
+                    <div>{DAYS_OF_WEEK[i]}</div>
+                    <div className="text-xs font-normal mt-0.5">{formatDateShort(day)}</div>
+                  </th>
+                );
+              })}
               <th className="text-center px-2 py-3 font-semibold text-neutral-600 bg-neutral-200 min-w-[52px]">Total</th>
               {!isReadOnly && <th className="w-7" />}
             </tr>
@@ -361,6 +392,9 @@ export function TimesheetGrid({
 
                   {/* Day cells */}
                   {weekDays.map((day, i) => {
+                    if (isBlocked(day)) {
+                      return <td key={i} className="bg-neutral-50/80 border-x border-neutral-100" />;
+                    }
                     const cell = getCellValue(row.projectId, row.phase, day);
                     return (
                       <td key={i} className="px-1 py-1.5 text-center">
@@ -401,6 +435,9 @@ export function TimesheetGrid({
             <tr className="bg-neutral-100 border-t-2 border-neutral-200 font-semibold">
               <td colSpan={2} className="px-3 py-2.5 text-sm text-neutral-700">Total / Day</td>
               {weekDays.map((day, i) => {
+                if (isBlocked(day)) {
+                  return <td key={i} className="bg-neutral-50/80" />;
+                }
                 const total = getDayTotal(day);
                 return (
                   <td key={i} className={cn("text-center px-1 py-2.5 text-sm", total > 0 ? "text-neutral-800" : "text-neutral-400")}>
@@ -447,13 +484,15 @@ export function TimesheetGrid({
               {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
               Save Draft
             </Button>
-            <Button size="sm" onClick={handleSubmit} disabled={saving || submitting || isPending || activeRows.length === 0}>
-              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-              Submit for Approval
-            </Button>
+            {showSubmit && (
+              <Button size="sm" onClick={handleSubmit} disabled={saving || submitting || isPending || activeRows.length === 0}>
+                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                Submit for Approval
+              </Button>
+            )}
           </div>
         )}
       </div>
     </div>
   );
-}
+});

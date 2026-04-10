@@ -9,26 +9,29 @@ datasource db {
 }
 
 model Employee {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  role         Role      @default(EMPLOYEE)
-  title        String?
-  phone        String?
-  startDate    DateTime?
-  photoUrl     String?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id                    String    @id @default(cuid())
+  name                  String
+  email                 String    @unique
+  passwordHash          String
+  role                  Role      @default(EMPLOYEE)
+  title                 String?
+  phone                 String?
+  startDate             DateTime?
+  photoUrl              String?
+  isActive              Boolean   @default(true)
+  defaultPeriodStartDay Int?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-  timesheets       TimesheetWeek[]
-  timesheetReviews TimesheetWeek[] @relation("TimesheetReviewer")
-  leaveRequests    LeaveRequest[]
-  leaveReviews     LeaveRequest[]  @relation("LeaveReviewer")
-  leaveBalances    LeaveBalance[]
-  expenseReports   ExpenseReport[]
-  expenseReviews   ExpenseReport[] @relation("ExpenseReviewer")
+  timesheets          TimesheetWeek[]
+  timesheetReviews    TimesheetWeek[]  @relation("TimesheetReviewer")
+  leaveRequests       LeaveRequest[]
+  leaveReviews        LeaveRequest[]   @relation("LeaveReviewer")
+  leaveBalances       LeaveBalance[]
+  expenseReports      ExpenseReport[]
+  expenseReviews      ExpenseReport[]  @relation("ExpenseReviewer")
+  reportPeriods       ReportPeriod[]
+  reportPeriodReviews ReportPeriod[]   @relation("PeriodReviewer")
 }
 
 enum Role {
@@ -56,22 +59,42 @@ enum ProjectStatus {
 }
 
 model TimesheetWeek {
+  id             String          @id @default(cuid())
+  employeeId     String
+  weekStartDate  DateTime        // Monday of the week (normalized to 00:00:00 UTC)
+  reportPeriodId String?
+  status         TimesheetStatus @default(DRAFT)
+  reviewedById   String?
+  reviewComment  String?
+  submittedAt    DateTime?
+  reviewedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  employee     Employee      @relation(fields: [employeeId], references: [id])
+  reviewer     Employee?     @relation("TimesheetReviewer", fields: [reviewedById], references: [id])
+  reportPeriod ReportPeriod? @relation(fields: [reportPeriodId], references: [id])
+  entries      TimesheetEntry[]
+
+  @@unique([employeeId, weekStartDate])
+}
+
+model ReportPeriod {
   id            String          @id @default(cuid())
   employeeId    String
-  weekStartDate DateTime        // Monday of the week (normalized to 00:00:00 UTC)
+  startDate     DateTime
+  endDate       DateTime
   status        TimesheetStatus @default(DRAFT)
-  reviewedById  String?
-  reviewComment String?
   submittedAt   DateTime?
   reviewedAt    DateTime?
+  reviewedById  String?
+  reviewComment String?
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  employee   Employee        @relation(fields: [employeeId], references: [id])
-  reviewer   Employee?       @relation("TimesheetReviewer", fields: [reviewedById], references: [id])
-  entries    TimesheetEntry[]
-
-  @@unique([employeeId, weekStartDate])
+  employee Employee        @relation(fields: [employeeId], references: [id])
+  reviewer Employee?       @relation("PeriodReviewer", fields: [reviewedById], references: [id])
+  weeks    TimesheetWeek[]
 }
 
 enum TimesheetStatus {
