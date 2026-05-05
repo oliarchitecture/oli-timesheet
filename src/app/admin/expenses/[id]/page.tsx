@@ -13,7 +13,9 @@ const MONTH_NAMES = [
 
 const CATEGORY_LABELS: Record<string, string> = {
   TRANSPORTATION: "Transportation",
-  MEALS: "Meals",
+  MEALS: "Meals/Office",
+  MEALS_USA: "Meals/USA",
+  MEALS_CHINA: "Meals/China",
   ACCOMMODATION: "Accommodation",
   OTHER: "Other",
 };

@@ -6,9 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, CalendarDays } from "lucide-react";
-import { formatDate, daysBetween } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { DeletePTOButton } from "@/components/leave/DeletePTOButton";
-import type { LeaveRequest } from "@prisma/client";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   PENDING: "warning",
@@ -19,7 +18,8 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
 const leaveTypeLabel: Record<string, string> = {
   VACATION: "Vacation",
   SICK: "Sick",
-  PERSONAL: "Comp",
+  PERSONAL: "Personal / Non-Paid Time",
+  COMP_DAY: "Comp Day",
   OTHER: "Other",
 };
 
@@ -37,6 +37,7 @@ export default async function PTOPage() {
   const [requests, balances] = await Promise.all([
     db.leaveRequest.findMany({
       where: { employeeId: session.user.id },
+      include: { days: { orderBy: { date: "asc" } } },
       orderBy: { createdAt: "desc" },
     }),
     db.leaveBalance.findMany({
@@ -98,26 +99,30 @@ export default async function PTOPage() {
             <p className="text-sm text-neutral-500 text-center py-8">No PTO requests yet.</p>
           ) : (
             <div className="divide-y divide-neutral-100">
-              {requests.map((lr: LeaveRequest) => (
-                <div key={lr.id} className="flex items-center justify-between px-6 py-4">
-                  <div>
-                    <p className="text-sm font-medium text-neutral-800">
-                      {leaveTypeLabel[lr.type]} · {daysBetween(lr.startDate, lr.endDate)} day{daysBetween(lr.startDate, lr.endDate) !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-xs text-neutral-500">
-                      {formatDate(lr.startDate)} – {formatDate(lr.endDate)}
-                      {lr.reason ? ` · ${lr.reason}` : ""}
-                    </p>
-                    {lr.reviewComment && (
-                      <p className="text-xs text-amber-700 mt-0.5">Comment: {lr.reviewComment}</p>
-                    )}
+              {requests.map((lr) => {
+                const numDays = lr.days.reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1.0), 0);
+                return (
+                  <div key={lr.id} className="flex items-center justify-between px-6 py-4">
+                    <div>
+                      <p className="text-sm font-medium text-neutral-800">
+                        {leaveTypeLabel[lr.type] ?? lr.type}
+                        {" · "}
+                        {numDays} day{numDays !== 1 ? "s" : ""}
+                      </p>
+                      <p className="text-xs text-neutral-500">
+                        {formatDate(lr.startDate)} – {formatDate(lr.endDate)}
+                      </p>
+                      {lr.reviewComment && (
+                        <p className="text-xs text-amber-700 mt-0.5">Comment: {lr.reviewComment}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Badge variant={statusVariant[lr.status] ?? "secondary"}>{lr.status}</Badge>
+                      {lr.status === "PENDING" && <DeletePTOButton requestId={lr.id} />}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge variant={statusVariant[lr.status] ?? "secondary"}>{lr.status}</Badge>
-                    {lr.status === "PENDING" && <DeletePTOButton requestId={lr.id} />}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

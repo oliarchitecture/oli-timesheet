@@ -31,10 +31,13 @@ export default async function PeriodPage({ params }: { params: Promise<{ id: str
     orderBy: { name: "asc" },
   });
 
+  const officeAdminProject = projects.find((p) => p.name === "001_Office Admin");
+  const rowOrderData = period.rowOrder as Array<{ projectId: string; phase: string }> | null;
+
   const weeksData = period.weeks.map((w) => ({
     id: w.id,
     weekStartDate: w.weekStartDate.toISOString(),
-    status: w.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED",
+    status: w.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED",
     updatedAt: w.updatedAt.toISOString(),
     entries: w.entries.map((e) => ({
       projectId: e.projectId,
@@ -64,10 +67,13 @@ export default async function PeriodPage({ params }: { params: Promise<{ id: str
         periodId={id}
         startDate={period.startDate.toISOString()}
         endDate={period.endDate.toISOString()}
-        status={period.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED"}
+        status={period.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED"}
+        reviewComment={period.reviewComment}
         weeks={weeksData}
         projects={projects}
         isAdmin={session.user.role === "ADMIN"}
+        officeAdminProjectId={officeAdminProject?.id ?? null}
+        rowOrder={rowOrderData}
       />
     </div>
   );

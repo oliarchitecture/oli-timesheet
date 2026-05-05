@@ -76,6 +76,15 @@ export function ProfileEditForm({ employee }: { employee: Employee }) {
             <Label htmlFor="phone">Phone</Label>
             <Input id="phone" value={form.phone} onChange={(e) => update("phone", e.target.value)} />
           </div>
+          <div className="space-y-1.5">
+            <Label>Start Date</Label>
+            <Input
+              value={employee.startDate ? new Date(employee.startDate).toISOString().slice(0, 10) : "—"}
+              disabled
+              className="opacity-60"
+            />
+            <p className="text-xs text-neutral-400">Contact your admin to update your start date.</p>
+          </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
           {success && <p className="text-sm text-green-600">Profile saved successfully.</p>}

@@ -10,7 +10,8 @@ import { Loader2, Save } from "lucide-react";
 const LEAVE_TYPES = [
   { type: "VACATION", label: "Vacation" },
   { type: "SICK", label: "Sick" },
-  { type: "PERSONAL", label: "Comp" },
+  { type: "PERSONAL", label: "Personal / Non-Paid Time" },
+  { type: "COMP_DAY", label: "Comp Day" },
   { type: "OTHER", label: "Other" },
 ];
 
@@ -29,6 +30,7 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
+  const [renewing, setRenewing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,6 +44,29 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
     }
     return initial;
   });
+
+  async function handleRenew() {
+    setRenewing(true);
+    setError("");
+    setSuccess(false);
+    try {
+      const res = await fetch("/api/admin/renew-leave-balances", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ employeeId, year }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? "Failed to renew");
+      }
+      setSuccess(true);
+      startTransition(() => router.refresh());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setRenewing(false);
+    }
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -107,10 +132,23 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {success && <p className="text-sm text-green-600">PTO balances saved successfully.</p>}
 
-      <Button type="submit" size="sm" disabled={loading || isPending}>
-        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-        Save PTO Balances
-      </Button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button type="submit" size="sm" disabled={loading || isPending}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+          Save PTO Balances
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleRenew}
+          disabled={renewing || isPending}
+          title={`Reset to new year allotment for ${year} based on years of service`}
+        >
+          {renewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          Reset to {year} Allotment
+        </Button>
+      </div>
     </form>
   );
 }

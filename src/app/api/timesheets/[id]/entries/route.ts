@@ -34,55 +34,26 @@ export async function PUT(
   };
 
   const activeEntries = entries.filter((e) => e.hours > 0 || e.absenceCode);
-  const emptyEntries = entries.filter((e) => e.hours === 0 && !e.absenceCode);
 
-  // Upsert active entries
-  if (activeEntries.length > 0) {
-    await db.$transaction(
-      activeEntries.map((e) =>
-        db.timesheetEntry.upsert({
-          where: {
-            timesheetWeekId_projectId_phase_date: {
-              timesheetWeekId: id,
-              projectId: e.projectId,
-              phase: e.phase,
-              date: new Date(e.date),
-            },
-          },
-          update: {
-            hours: e.hours,
-            absenceCode: e.absenceCode ?? null,
-            notes: e.notes ?? null,
-          },
-          create: {
-            timesheetWeekId: id,
-            projectId: e.projectId,
-            phase: e.phase,
-            date: new Date(e.date),
-            hours: e.hours,
-            absenceCode: e.absenceCode ?? null,
-            notes: e.notes ?? null,
-          },
-        })
-      )
-    );
-  }
-
-  // Delete entries that were cleared
-  if (emptyEntries.length > 0) {
-    await db.$transaction(
-      emptyEntries.map((e) =>
-        db.timesheetEntry.deleteMany({
-          where: {
-            timesheetWeekId: id,
-            projectId: e.projectId,
-            phase: e.phase,
-            date: new Date(e.date),
-          },
-        })
-      )
-    );
-  }
+  // Full replace: delete all existing entries for this week, then insert active ones.
+  // Uses interactive transaction to avoid race conditions between concurrent saves.
+  await db.$transaction(async (tx) => {
+    await tx.timesheetEntry.deleteMany({ where: { timesheetWeekId: id } });
+    if (activeEntries.length > 0) {
+      await tx.timesheetEntry.createMany({
+        data: activeEntries.map((e) => ({
+          timesheetWeekId: id,
+          projectId: e.projectId,
+          phase: e.phase,
+          date: new Date(e.date),
+          hours: e.hours,
+          absenceCode: e.absenceCode ?? null,
+          notes: e.notes ?? null,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  });
 
   const updated = await db.timesheetWeek.update({
     where: { id },

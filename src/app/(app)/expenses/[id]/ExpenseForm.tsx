@@ -15,9 +15,17 @@ const MONTH_NAMES = [
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   TRANSPORTATION: "Transportation",
-  MEALS: "Meals",
+  MEALS: "Meals/Office",
+  MEALS_USA: "Meals/USA",
+  MEALS_CHINA: "Meals/China",
   ACCOMMODATION: "Accommodation",
   OTHER: "Other",
+};
+
+const MEALS_LIMIT: Partial<Record<ExpenseCategory, number>> = {
+  MEALS: 22,
+  MEALS_USA: 95,
+  MEALS_CHINA: 60,
 };
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
@@ -214,6 +222,12 @@ export function ExpenseForm({
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+    if (file.size > MAX_SIZE) {
+      setError("File must not exceed 10 MB.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     setUploading(true);
     setError("");
     try {
@@ -371,14 +385,22 @@ export function ExpenseForm({
                   </td>
                   <td className="px-4 py-2">
                     {isDraft ? (
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.amount}
-                        onChange={(e) => updateItem(item._key, "amount", e.target.value)}
-                        className="w-full rounded border border-neutral-300 px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-primary-500"
-                      />
+                      <div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={item.amount}
+                          onChange={(e) => updateItem(item._key, "amount", e.target.value)}
+                          className="w-full rounded border border-neutral-300 px-2 py-1 text-sm text-right focus:outline-none focus:ring-1 focus:ring-primary-500"
+                        />
+                        {(() => {
+                          const mealsLimit = MEALS_LIMIT[item.category];
+                          return mealsLimit !== undefined && parseFloat(item.amount) > mealsLimit ? (
+                            <p className="text-xs text-amber-600 mt-0.5 text-right">Limit: ${mealsLimit}/day</p>
+                          ) : null;
+                        })()}
+                      </div>
                     ) : (
                       <span className="block text-right">${parseFloat(item.amount).toFixed(2)}</span>
                     )}
@@ -457,7 +479,7 @@ export function ExpenseForm({
         <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-neutral-800">Supporting Documents</h3>
           {isDraft && (
-            <div>
+            <div className="flex flex-col items-end gap-0.5">
               <input
                 ref={fileRef}
                 type="file"
@@ -475,6 +497,7 @@ export function ExpenseForm({
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {uploading ? "Uploading…" : "Upload Receipt"}
               </Button>
+              <p className="text-xs text-neutral-400">Max 10 MB per file</p>
             </div>
           )}
         </div>
@@ -520,16 +543,28 @@ export function ExpenseForm({
       {error && <p className="text-sm text-red-600">{error}</p>}
 
       {/* Actions */}
-      {isDraft && (
-        <div className="flex gap-3">
-          <Button onClick={handleSave} variant="outline" disabled={saving || submitting}>
-            {saving ? "Saving…" : "Save Draft"}
-          </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || saving || submitting}>
-            {submitting ? "Submitting…" : "Submit for Approval"}
-          </Button>
-        </div>
-      )}
+      <div className="flex gap-3 flex-wrap items-center">
+        {isDraft && (
+          <>
+            <Button onClick={handleSave} variant="outline" disabled={saving || submitting}>
+              {saving ? "Saving…" : "Save Draft"}
+            </Button>
+            <Button onClick={handleSubmit} disabled={!canSubmit || saving || submitting}>
+              {submitting ? "Submitting…" : "Submit for Approval"}
+            </Button>
+          </>
+        )}
+        {!isDraft && (
+          <a
+            href={`/api/expenses/${reportId}/export`}
+            download
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-md border border-neutral-200 text-neutral-700 hover:bg-neutral-50 transition-colors"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Export (PDF + Excel)
+          </a>
+        )}
+      </div>
     </div>
   );
 }

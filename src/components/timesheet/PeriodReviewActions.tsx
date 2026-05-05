@@ -16,12 +16,12 @@ import { Check, RotateCcw, X, Loader2 } from "lucide-react";
 
 type ReviewStatus = "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
 
-interface ReviewActionsProps {
-  timesheetId: string;
-  status: "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
+interface PeriodReviewActionsProps {
+  periodId: string;
+  status: string;
 }
 
-export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
+export function PeriodReviewActions({ periodId, status }: PeriodReviewActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -29,6 +29,20 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  if (status !== "SUBMITTED") {
+    return (
+      <div className="text-sm text-neutral-500">
+        {status === "APPROVED"
+          ? "This timesheet period has been approved."
+          : status === "REJECTED"
+          ? "This timesheet period has been rejected."
+          : status === "REVISION_REQUESTED"
+          ? "Revision has been requested. Awaiting employee resubmission."
+          : null}
+      </div>
+    );
+  }
 
   function openDialog(newAction: ReviewStatus) {
     setAction(newAction);
@@ -41,14 +55,14 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/timesheets/${timesheetId}/review`, {
+      const res = await fetch(`/api/report-periods/${periodId}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "APPROVED" }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Review failed");
+        throw new Error(data.error ?? "Failed to approve");
       }
       startTransition(() => router.refresh());
     } catch (err) {
@@ -59,12 +73,11 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
   }
 
   async function submitDialog() {
-    if (!action) return;
-    if ((action === "REJECTED" || action === "REVISION_REQUESTED") && !comment.trim()) return;
+    if (!action || !comment.trim()) return;
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/timesheets/${timesheetId}/review`, {
+      const res = await fetch(`/api/report-periods/${periodId}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: action, comment }),
@@ -76,18 +89,10 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
       setDialogOpen(false);
       startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Action failed. Please try again.");
+      setError(err instanceof Error ? err.message : "Action failed.");
     } finally {
       setLoading(false);
     }
-  }
-
-  if (status === "APPROVED" || status === "REJECTED") {
-    return (
-      <div className="text-sm text-neutral-500">
-        This timesheet has already been {status.toLowerCase()}.
-      </div>
-    );
   }
 
   return (
@@ -104,7 +109,7 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
           ) : (
             <Check className="h-3.5 w-3.5" />
           )}
-          Approve
+          Approve Period
         </Button>
         <Button
           variant="outline"
@@ -123,7 +128,7 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
           disabled={loading || isPending}
         >
           <X className="h-3.5 w-3.5" />
-          Reject
+          Reject Period
         </Button>
       </div>
 
@@ -133,22 +138,22 @@ export function ReviewActions({ timesheetId, status }: ReviewActionsProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {action === "REJECTED" ? "Reject Timesheet" : "Request Revision"}
+              {action === "REJECTED" ? "Reject Period" : "Request Revision"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-sm text-neutral-600">
               {action === "REJECTED"
-                ? "The timesheet will be rejected. This is a final decision."
-                : "The timesheet will be returned to the employee with your notes. They can re-edit and resubmit."}
+                ? "The entire period will be rejected. This is a final decision."
+                : "All weeks will be returned to Draft. The employee can re-edit and resubmit."}
             </p>
             <div className="space-y-1.5">
-              <Label htmlFor="comment">Comment (required)</Label>
+              <Label htmlFor="period-comment">Comment (required)</Label>
               <Textarea
-                id="comment"
+                id="period-comment"
                 placeholder={
                   action === "REJECTED"
-                    ? "Explain why this timesheet is being rejected…"
+                    ? "Explain why this period is being rejected…"
                     : "Describe what needs to be changed…"
                 }
                 value={comment}

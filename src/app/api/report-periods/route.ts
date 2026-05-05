@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWeekStart } from "@/lib/utils";
+import { isSameUTCDay } from "@/lib/holidays";
+import { absenceCodeForDay, hoursForDay } from "@/lib/leave-utils";
 
 // POST /api/report-periods - create a new reporting period
 export async function POST(req: Request) {
@@ -64,6 +66,59 @@ export async function POST(req: Request) {
         reportPeriodId: newPeriod.id,
       },
     });
+  }
+
+  // Pre-fill approved PTO into the newly-created weeks
+  const [approvedLeaves, officeAdminProject] = await Promise.all([
+    db.leaveRequest.findMany({
+      where: {
+        employeeId: session.user.id,
+        status: "APPROVED",
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+      include: { days: true },
+    }),
+    db.project.findFirst({ where: { name: "001_Office Admin" } }),
+  ]);
+
+  if (officeAdminProject && approvedLeaves.length > 0) {
+    const weeks = await db.timesheetWeek.findMany({
+      where: { reportPeriodId: newPeriod.id },
+      select: { id: true, weekStartDate: true },
+    });
+
+    for (const leave of approvedLeaves) {
+      for (const day of leave.days) {
+        const dayDate = new Date(day.date);
+        const weekStart = getWeekStart(dayDate);
+        const week = weeks.find((w) => isSameUTCDay(w.weekStartDate, weekStart));
+        if (!week) continue;
+
+        await db.timesheetEntry.upsert({
+          where: {
+            timesheetWeekId_projectId_phase_date: {
+              timesheetWeekId: week.id,
+              projectId: officeAdminProject.id,
+              phase: "",
+              date: dayDate,
+            },
+          },
+          update: {
+            hours: hoursForDay(day.halfDay),
+            absenceCode: absenceCodeForDay(leave.type, day.halfDay),
+          },
+          create: {
+            timesheetWeekId: week.id,
+            projectId: officeAdminProject.id,
+            phase: "",
+            date: dayDate,
+            hours: hoursForDay(day.halfDay),
+            absenceCode: absenceCodeForDay(leave.type, day.halfDay),
+          },
+        });
+      }
+    }
   }
 
   // Fetch the period with its weeks in a fresh query

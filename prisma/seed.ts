@@ -29,6 +29,7 @@ async function main() {
 
   // Placeholder projects — replace with your actual project list before seeding production
   const projects = [
+    { name: "001_Office Admin", code: "ADMIN" },
     { name: "Project Alpha", code: "P001" },
     { name: "Project Beta", code: "P002" },
     { name: "Project Gamma", code: "P003" },

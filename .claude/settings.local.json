@@ -22,7 +22,24 @@
       "Bash(npm run db:push)",
       "Bash(npx prisma db push --accept-data-loss)",
       "Bash(npm run db:seed)",
-      "Bash(npx prisma db push)"
+      "Bash(npx prisma db push)",
+      "Bash(ls /c/Users/klein/Desktop/oli-timesheet/src/app/api/timesheets/[id]/)",
+      "Bash(ls /c/Users/klein/Desktop/oli-timesheet/src/app/api/expenses/[id]/)",
+      "Bash(ls /c/Users/klein/Desktop/oli-timesheet/src/app/api/expenses/[id]/documents/)",
+      "Bash(ls /c/Users/klein/Desktop/oli-timesheet/src/app/api/timesheets/[id]/entries/)",
+      "Bash(ls /c/Users/klein/Desktop/oli-timesheet/src/app/api/employees/[id]/)",
+      "Bash(cp \"c:/Users/klein/Desktop/oli-timesheet/src/app/api/expenses/[id]/export/route.ts\" \"c:/Users/klein/Desktop/oli-timesheet/src/app/api/expenses/[id]/export/route.tsx\")",
+      "Bash(rm \"c:/Users/klein/Desktop/oli-timesheet/src/app/api/expenses/[id]/export/route.ts\")",
+      "Bash(node -e \"const pkg = require\\('./node_modules/@react-pdf/renderer/package.json'\\); console.log\\(pkg.version, Object.keys\\(pkg.exports || {}\\).join\\(', '\\)\\)\")",
+      "Bash(node -e \"const r = require\\('@react-pdf/renderer'\\); console.log\\(Object.keys\\(r\\).filter\\(k => k.toLowerCase\\(\\).includes\\('buffer'\\) || k.toLowerCase\\(\\).includes\\('render'\\)\\).join\\(', '\\)\\)\")",
+      "Bash(cmd /c \"tasklist | findstr /i node\")",
+      "Bash(netstat -ano)",
+      "Bash(cmd /c \"taskkill /PID 11016 /PID 51816 /PID 63500 /F\")",
+      "Bash(powershell -Command \"Stop-Process -Id 11016, 51816, 63500 -Force -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 500; Get-NetTCPConnection -LocalPort 3000,3001,3002 -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess\")",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3000,3001,3002 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess\")",
+      "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object LocalPort, OwningProcess\")",
+      "Bash(npm run:*)",
+      "Bash(powershell -Command \"Start-Sleep 6; Get-Content 'C:/Users/klein/AppData/Local/Temp/claude/c--Users-klein-Desktop-oli-timesheet/afef4bd1-949d-4c84-a09f-149dd1536b64/tasks/bl9qewziq.output' -ErrorAction SilentlyContinue\")"
     ]
   }
 }

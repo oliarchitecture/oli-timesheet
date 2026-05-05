@@ -92,6 +92,8 @@ model ReportPeriod {
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
+  rowOrder  Json?
+
   employee Employee        @relation(fields: [employeeId], references: [id])
   reviewer Employee?       @relation("PeriodReviewer", fields: [reviewedById], references: [id])
   weeks    TimesheetWeek[]
@@ -102,6 +104,7 @@ enum TimesheetStatus {
   SUBMITTED
   APPROVED
   REJECTED
+  REVISION_REQUESTED
 }
 
 model TimesheetEntry {
@@ -126,15 +129,27 @@ model LeaveRequest {
   type          LeaveType
   startDate     DateTime
   endDate       DateTime
-  reason        String?
   status        LeaveStatus @default(PENDING)
   reviewedById  String?
   reviewComment String?
   createdAt     DateTime    @default(now())
   reviewedAt    DateTime?
 
-  employee Employee  @relation(fields: [employeeId], references: [id])
-  reviewer Employee? @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  employee Employee         @relation(fields: [employeeId], references: [id])
+  reviewer Employee?        @relation("LeaveReviewer", fields: [reviewedById], references: [id])
+  days     LeaveRequestDay[]
+}
+
+model LeaveRequestDay {
+  id             String       @id @default(cuid())
+  leaveRequestId String
+  date           DateTime
+  halfDay        Boolean      @default(false)
+  reason         String?
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+
+  @@index([leaveRequestId])
 }
 
 enum LeaveType {
@@ -142,6 +157,7 @@ enum LeaveType {
   SICK
   PERSONAL
   OTHER
+  COMP_DAY
 }
 
 enum LeaveStatus {
@@ -222,6 +238,8 @@ enum ExpenseStatus {
 enum ExpenseCategory {
   TRANSPORTATION
   MEALS
+  MEALS_USA
+  MEALS_CHINA
   ACCOMMODATION
   OTHER
 }

@@ -13,6 +13,7 @@ import {
   Settings,
   ChevronRight,
   Receipt,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  external?: boolean;
 }
 
 const employeeNav: NavItem[] = [
@@ -29,6 +31,7 @@ const employeeNav: NavItem[] = [
   { href: "/leave", label: "PTO", icon: Calendar },
   { href: "/expenses", label: "Expenses", icon: Receipt },
   { href: "/profile", label: "My Profile", icon: Settings },
+  { href: "/docs/OLI2025_OfficeGuidelines_HO.pdf", label: "Office Guidelines", icon: BookOpen, external: true },
 ];
 
 const adminNav: NavItem[] = [
@@ -64,20 +67,39 @@ export function Sidebar({ role }: SidebarProps) {
       <nav className="flex-1 px-3 py-4 space-y-0.5">
         {navItems.map((item) => {
           const isActive =
-            item.href === "/admin" || item.href === "/dashboard"
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+            !item.external && (
+              item.href === "/admin" || item.href === "/dashboard"
+                ? pathname === item.href
+                : pathname.startsWith(item.href)
+            );
+
+          const className = cn(
+            "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+            isActive
+              ? "bg-primary-500 text-white"
+              : "text-neutral-300 hover:bg-neutral-700 hover:text-white"
+          );
+
+          if (item.external) {
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={className}
+              >
+                <item.icon className="h-4 w-4 shrink-0" />
+                <span>{item.label}</span>
+              </a>
+            );
+          }
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                isActive
-                  ? "bg-primary-500 text-white"
-                  : "text-neutral-300 hover:bg-neutral-700 hover:text-white"
-              )}
+              className={className}
             >
               <item.icon className="h-4 w-4 shrink-0" />
               <span>{item.label}</span>

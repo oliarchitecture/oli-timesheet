@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatDate, daysBetween } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import { LeaveReviewActions } from "./LeaveReviewActions";
 import { BackButton } from "@/components/ui/back-button";
 
@@ -16,7 +16,8 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
 const leaveTypeLabel: Record<string, string> = {
   VACATION: "Vacation",
   SICK: "Sick",
-  PERSONAL: "Personal",
+  PERSONAL: "Personal / Non-Paid Time",
+  COMP_DAY: "Comp Day",
   OTHER: "Other",
 };
 
@@ -30,12 +31,13 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
     include: {
       employee: { select: { name: true, email: true, title: true } },
       reviewer: { select: { name: true } },
+      days: { orderBy: { date: "asc" } },
     },
   });
 
   if (!request) notFound();
 
-  const numDays = daysBetween(request.startDate, request.endDate);
+  const numDays = request.days.reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1.0), 0);
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -62,7 +64,7 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
               <p className="font-medium text-neutral-800">
                 {formatDate(request.startDate)} – {formatDate(request.endDate)}
               </p>
-              <p className="text-neutral-500">{numDays} day{numDays !== 1 ? "s" : ""}</p>
+              <p className="text-neutral-500">{numDays} working day{numDays !== 1 ? "s" : ""}</p>
             </div>
             <div>
               <p className="text-xs text-neutral-500 mb-0.5">Submitted</p>
@@ -70,12 +72,41 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
             </div>
           </div>
 
-          {request.reason && (
+          {/* Per-day breakdown */}
+          {request.days.length > 0 && (
             <div>
-              <p className="text-xs text-neutral-500 mb-0.5">Reason</p>
-              <p className="text-sm text-neutral-700 bg-neutral-50 rounded p-3 border border-neutral-200">
-                {request.reason}
-              </p>
+              <p className="text-xs text-neutral-500 mb-2">Day Breakdown</p>
+              <div className="rounded-lg border border-neutral-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-neutral-50 border-b border-neutral-200">
+                    <tr>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Date</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Type</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-100">
+                    {request.days.map((d) => (
+                      <tr key={d.id}>
+                        <td className="px-3 py-2 text-neutral-700 font-medium whitespace-nowrap">
+                          {new Date(d.date).toLocaleDateString("en-US", {
+                            weekday: "short",
+                            month: "short",
+                            day: "numeric",
+                            timeZone: "UTC",
+                          })}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Badge variant={d.halfDay ? "secondary" : "outline"}>
+                            {d.halfDay ? "Half Day" : "Full Day"}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-neutral-500 text-xs">{d.reason ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

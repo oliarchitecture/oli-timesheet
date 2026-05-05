@@ -13,7 +13,7 @@ export async function POST(
   if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const { status, comment } = await req.json() as {
-    status: "APPROVED" | "REJECTED";
+    status: "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
     comment?: string;
   };
 
@@ -24,17 +24,29 @@ export async function POST(
     return NextResponse.json({ error: "Can only review SUBMITTED timesheets" }, { status: 400 });
   }
 
-  const updated = await db.timesheetWeek.update({
-    where: { id },
-    data: {
-      status,
-      reviewedById: session.user.id,
-      reviewComment: comment ?? null,
-      reviewedAt: new Date(),
-      // If rejected, reset to DRAFT so employee can re-edit
-      ...(status === "REJECTED" ? { status: "DRAFT", submittedAt: null } : {}),
-    },
-  });
+  // Weeks that belong to a period should be reviewed at the period level
+  if (timesheet.reportPeriodId) {
+    return NextResponse.json(
+      { error: "This week belongs to a period. Review the period instead." },
+      { status: 400 }
+    );
+  }
+
+  const now = new Date();
+  let updateData: Record<string, unknown>;
+
+  if (status === "APPROVED") {
+    updateData = { status: "APPROVED", reviewedById: session.user.id, reviewComment: comment ?? null, reviewedAt: now };
+  } else if (status === "REJECTED") {
+    updateData = { status: "REJECTED", reviewedById: session.user.id, reviewComment: comment ?? null, reviewedAt: now };
+  } else if (status === "REVISION_REQUESTED") {
+    // Return to DRAFT for employee to re-edit
+    updateData = { status: "DRAFT", submittedAt: null, reviewedById: session.user.id, reviewComment: comment ?? null, reviewedAt: now };
+  } else {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+
+  const updated = await db.timesheetWeek.update({ where: { id }, data: updateData });
 
   return NextResponse.json(updated);
 }

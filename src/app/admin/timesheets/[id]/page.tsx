@@ -6,9 +6,11 @@ import { Badge } from "@/components/ui/badge";
 import { StatusProgress } from "@/components/timesheet/StatusProgress";
 import { TimesheetGrid } from "@/components/timesheet/TimesheetGrid";
 import { ReviewActions } from "@/components/timesheet/ReviewActions";
+import { AdminDeleteTimesheetButton } from "@/components/timesheet/AdminDeleteTimesheetButton";
 import { formatDate, getWeekDays } from "@/lib/utils";
 import { Calendar } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
+import Link from "next/link";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   DRAFT: "secondary",
@@ -33,6 +35,7 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
       },
     },
   });
+  // reportPeriodId is available on the base model
 
   if (!timesheet) notFound();
 
@@ -67,7 +70,10 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <BackButton />
+      <div className="flex items-center justify-between">
+        <BackButton />
+        <AdminDeleteTimesheetButton timesheetId={id} />
+      </div>
       {/* Header */}
       <div className="bg-white rounded-lg border border-neutral-200 p-5">
         <div className="flex items-start justify-between flex-wrap gap-4">
@@ -83,13 +89,21 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
             </div>
           </div>
           <div className="flex flex-col items-end gap-3">
-            <StatusProgress status={timesheet.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED"} />
-            {timesheet.status === "SUBMITTED" && (
-              <ReviewActions
-                timesheetId={id}
-                status="SUBMITTED"
-              />
-            )}
+            <StatusProgress status={timesheet.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED"} />
+            {/* If this week belongs to a period, redirect admin to period review */}
+            {timesheet.status === "SUBMITTED" && timesheet.reportPeriodId ? (
+              <div className="text-sm text-neutral-500 text-right">
+                <p>This week is part of a reporting period.</p>
+                <Link
+                  href={`/admin/report-periods/${timesheet.reportPeriodId}`}
+                  className="text-primary-600 hover:underline font-medium"
+                >
+                  Review the full period →
+                </Link>
+              </div>
+            ) : timesheet.status === "SUBMITTED" ? (
+              <ReviewActions timesheetId={id} status="SUBMITTED" />
+            ) : null}
             {(timesheet.status === "APPROVED" || timesheet.status === "REJECTED") && (
               <p className="text-sm text-neutral-500">
                 {timesheet.status === "APPROVED" ? "Approved" : "Rejected"} by {timesheet.reviewer?.name} on {formatDate(timesheet.reviewedAt!)}

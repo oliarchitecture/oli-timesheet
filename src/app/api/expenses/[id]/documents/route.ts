@@ -20,6 +20,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const file = formData.get("file") as File | null;
   if (!file) return NextResponse.json({ error: "No file provided" }, { status: 400 });
 
+  const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+  if (file.size > MAX_SIZE) {
+    return NextResponse.json({ error: "File exceeds 10 MB limit" }, { status: 413 });
+  }
+
   const bytes = await file.arrayBuffer();
   const buffer = Buffer.from(bytes);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");

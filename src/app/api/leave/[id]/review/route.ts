@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getWeekStart } from "@/lib/utils";
+import { absenceCodeForDay, hoursForDay } from "@/lib/leave-utils";
 
 export async function POST(
   req: Request,
@@ -17,7 +19,10 @@ export async function POST(
     comment?: string;
   };
 
-  const request = await db.leaveRequest.findUnique({ where: { id } });
+  const request = await db.leaveRequest.findUnique({
+    where: { id },
+    include: { days: true },
+  });
   if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (request.status !== "PENDING") {
     return NextResponse.json({ error: "Already reviewed" }, { status: 400 });
@@ -33,12 +38,13 @@ export async function POST(
     },
   });
 
-  // If approved, deduct from leave balance
   if (status === "APPROVED") {
-    const start = new Date(request.startDate);
-    const end = new Date(request.endDate);
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    const year = start.getFullYear();
+    // Calculate total days from per-day records
+    const totalDays = request.days.reduce(
+      (sum, d) => sum + (d.halfDay ? 0.5 : 1.0),
+      0
+    );
+    const year = new Date(request.startDate).getFullYear();
 
     await db.leaveBalance.upsert({
       where: {
@@ -48,15 +54,58 @@ export async function POST(
           type: request.type,
         },
       },
-      update: { usedDays: { increment: days } },
+      update: { usedDays: { increment: totalDays } },
       create: {
         employeeId: request.employeeId,
         year,
         type: request.type,
-        totalDays: 20, // default; admin can adjust later
-        usedDays: days,
+        totalDays: 20,
+        usedDays: totalDays,
       },
     });
+
+    // Pre-fill any existing DRAFT timesheet weeks that overlap the approved leave days
+    const officeAdminProject = await db.project.findFirst({
+      where: { name: "001_Office Admin" },
+    });
+
+    if (officeAdminProject) {
+      for (const day of request.days) {
+        const weekStart = getWeekStart(new Date(day.date));
+        const week = await db.timesheetWeek.findUnique({
+          where: {
+            employeeId_weekStartDate: {
+              employeeId: request.employeeId,
+              weekStartDate: weekStart,
+            },
+          },
+        });
+        if (!week || week.status !== "DRAFT") continue;
+
+        await db.timesheetEntry.upsert({
+          where: {
+            timesheetWeekId_projectId_phase_date: {
+              timesheetWeekId: week.id,
+              projectId: officeAdminProject.id,
+              phase: "",
+              date: new Date(day.date),
+            },
+          },
+          update: {
+            hours: hoursForDay(day.halfDay),
+            absenceCode: absenceCodeForDay(request.type, day.halfDay),
+          },
+          create: {
+            timesheetWeekId: week.id,
+            projectId: officeAdminProject.id,
+            phase: "",
+            date: new Date(day.date),
+            hours: hoursForDay(day.halfDay),
+            absenceCode: absenceCodeForDay(request.type, day.halfDay),
+          },
+        });
+      }
+    }
   }
 
   return NextResponse.json(updated);
