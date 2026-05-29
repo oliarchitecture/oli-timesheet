@@ -39,7 +39,17 @@
       "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3000,3001,3002 -State Listen -ErrorAction SilentlyContinue | Select-Object LocalPort, OwningProcess\")",
       "Bash(powershell -Command \"Get-NetTCPConnection -LocalPort 3000 -State Listen | Select-Object LocalPort, OwningProcess\")",
       "Bash(npm run:*)",
-      "Bash(powershell -Command \"Start-Sleep 6; Get-Content 'C:/Users/klein/AppData/Local/Temp/claude/c--Users-klein-Desktop-oli-timesheet/afef4bd1-949d-4c84-a09f-149dd1536b64/tasks/bl9qewziq.output' -ErrorAction SilentlyContinue\")"
+      "Bash(powershell -Command \"Start-Sleep 6; Get-Content 'C:/Users/klein/AppData/Local/Temp/claude/c--Users-klein-Desktop-oli-timesheet/afef4bd1-949d-4c84-a09f-149dd1536b64/tasks/bl9qewziq.output' -ErrorAction SilentlyContinue\")",
+      "Bash(git ls-remote *)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\klein\\\\Desktop\\\\oli-timesheet\\\\src\" -Recurse -Include \"*.ts\", \"*.tsx\", \"*.js\", \"*.jsx\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(xargs grep -l \"email\\\\|notification\\\\|send\\\\|mail\")",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(xargs ls -la)",
+      "Bash(xargs grep -l \"debounce\")",
+      "Bash(xargs grep -l \"useEffect\")",
+      "Bash(npm install *)",
+      "Bash(npm list *)"
     ]
   }
 }

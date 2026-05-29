@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyAdminNewSubmission } from "@/lib/email";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -25,6 +26,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     where: { id },
     data: { status: "SUBMITTED", submittedAt: new Date() },
   });
+
+  // Fire-and-forget: notify all admins
+  db.employee.findMany({ where: { role: "ADMIN", isActive: true }, select: { name: true, email: true } })
+    .then((admins) => {
+      for (const admin of admins) {
+        void notifyAdminNewSubmission(admin.email, admin.name, "expense", session.user.name ?? "An employee", `/admin/expenses/${id}`);
+      }
+    })
+    .catch(() => {});
 
   return NextResponse.json(updated);
 }

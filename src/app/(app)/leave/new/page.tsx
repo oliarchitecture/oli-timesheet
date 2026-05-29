@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,8 @@ function buildWorkdays(start: string, end: string): DayEntry[] {
   return result;
 }
 
+const DRAFT_KEY = "pto-draft";
+
 export default function NewLeaveRequestPage() {
   const router = useRouter();
   const [type, setType] = useState("VACATION");
@@ -52,6 +54,32 @@ export default function NewLeaveRequestPage() {
   const [days, setDays] = useState<DayEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [restored, setRestored] = useState(false);
+
+  // Restore draft from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const { type: t, startDate: s, endDate: e } = JSON.parse(raw);
+      if (t) setType(t);
+      if (s) setStartDate(s);
+      if (e) setEndDate(e);
+      if (s && e && e >= s) {
+        setDays(buildWorkdays(s, e));
+        setRestored(true);
+      }
+    } catch {
+      // ignore malformed stored data
+    }
+  }, []);
+
+  // Persist draft to localStorage whenever fields change
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ type, startDate, endDate }));
+    } catch { /* ignore */ }
+  }, [type, startDate, endDate]);
 
   function recomputeDays(start: string, end: string) {
     if (start && end && end >= start) {
@@ -104,6 +132,7 @@ export default function NewLeaveRequestPage() {
         const data = await res.json();
         throw new Error(data.error ?? "Failed to submit");
       }
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       router.push("/leave");
       router.refresh();
     } catch (err) {
@@ -124,6 +153,12 @@ export default function NewLeaveRequestPage() {
         </Button>
         <h2 className="text-xl font-semibold text-neutral-900">New PTO Request</h2>
       </div>
+
+      {restored && (
+        <p className="text-xs text-neutral-500 bg-neutral-50 border border-neutral-200 rounded px-3 py-2">
+          Draft restored from your last session.
+        </p>
+      )}
 
       <Card>
         <CardContent className="pt-6">

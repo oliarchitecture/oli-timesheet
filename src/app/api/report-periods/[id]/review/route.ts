@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyEmployeeDecision } from "@/lib/email";
 
 /**
  * POST /api/report-periods/[id]/review
@@ -26,7 +27,7 @@ export async function POST(
 
   const period = await db.reportPeriod.findUnique({
     where: { id },
-    select: { id: true, status: true },
+    include: { employee: { select: { name: true, email: true } } },
   });
   if (!period) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (period.status !== "SUBMITTED") {
@@ -73,6 +74,13 @@ export async function POST(
   } else {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
+
+  // Fire-and-forget: notify employee
+  const decisionMap = { APPROVED: "approved", REJECTED: "rejected", REVISION_REQUESTED: "revision" } as const;
+  void notifyEmployeeDecision(
+    period.employee.email, period.employee.name, "timesheet",
+    decisionMap[status], comment, `/timesheets/period/${id}`
+  );
 
   return NextResponse.json({ ok: true });
 }

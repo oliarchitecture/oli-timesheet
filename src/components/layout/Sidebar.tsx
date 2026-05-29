@@ -10,6 +10,7 @@ import {
   Users,
   FolderKanban,
   BarChart3,
+  PieChart,
   Settings,
   ChevronRight,
   Receipt,
@@ -30,6 +31,7 @@ const employeeNav: NavItem[] = [
   { href: "/timesheets", label: "Timesheets", icon: Clock },
   { href: "/leave", label: "PTO", icon: Calendar },
   { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/summary", label: "My Summary", icon: PieChart },
   { href: "/profile", label: "My Profile", icon: Settings },
   { href: "/docs/OLI2025_OfficeGuidelines_HO.pdf", label: "Office Guidelines", icon: BookOpen, external: true },
 ];
@@ -41,6 +43,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/timesheets", label: "Timesheets", icon: Clock },
   { href: "/admin/leave", label: "PTO Requests", icon: Calendar },
   { href: "/admin/expenses", label: "Expenses", icon: Receipt },
+  { href: "/admin/summary", label: "Summary", icon: PieChart },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];
 

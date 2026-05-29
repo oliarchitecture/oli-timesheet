@@ -31,7 +31,8 @@ export default async function AdminTimesheetsPage({
   if (!session || session.user.role !== "ADMIN") redirect("/dashboard");
 
   const { status, employeeId, year, month, view } = await searchParams;
-  const showPeriods = view === "periods";
+  // Default to periods view — weeks submitted as part of a period should be reviewed via the period
+  const showPeriods = view !== "weeks";
 
   // Build date range filter from year/month
   let dateFilter = {};
@@ -76,7 +77,7 @@ export default async function AdminTimesheetsPage({
         </div>
 
         <div className="flex gap-2">
-          <Link href="/admin/timesheets" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50">By Week</Link>
+          <Link href="/admin/timesheets?view=weeks" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50">By Week</Link>
           <span className="px-3 py-1.5 text-sm rounded-md bg-primary-500 text-white">By Period</span>
         </div>
 
@@ -117,9 +118,10 @@ export default async function AdminTimesheetsPage({
     );
   }
 
-  // Default: weeks view
+  // Weeks view: only show standalone weeks (not part of a period)
   const timesheets = await db.timesheetWeek.findMany({
     where: {
+      reportPeriodId: null, // exclude weeks that belong to a period — review those via the period page
       status: status ? status as "SUBMITTED" | "APPROVED" | "REJECTED" : { not: "DRAFT" },
       ...(employeeId ? { employeeId } : {}),
       ...dateFilter,
@@ -140,7 +142,7 @@ export default async function AdminTimesheetsPage({
 
       <div className="flex gap-2">
         <span className="px-3 py-1.5 text-sm rounded-md bg-primary-500 text-white">By Week</span>
-        <Link href="/admin/timesheets?view=periods" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50">By Period</Link>
+        <Link href="/admin/timesheets" className="px-3 py-1.5 text-sm rounded-md border border-neutral-200 text-neutral-600 hover:bg-neutral-50">By Period</Link>
       </div>
 
       <TimesheetFilters

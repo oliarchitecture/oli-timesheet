@@ -95,5 +95,36 @@ export async function GET(req: Request) {
     return NextResponse.json({ rows });
   }
 
+  if (type === "hours-by-phase") {
+    const entries = await db.timesheetEntry.findMany({
+      where: {
+        ...(dateFilter ? { timesheetWeek: { weekStartDate: dateFilter } } : {}),
+        ...(employeeId ? { timesheetWeek: { employeeId } } : {}),
+      },
+      include: {
+        project: { select: { name: true } },
+        timesheetWeek: { select: { employeeId: true, status: true } },
+      },
+    });
+
+    const map = new Map<string, { project: string; phase: string; total_hours: number; employees: Set<string> }>();
+    for (const e of entries) {
+      const key = `${e.projectId}|${e.phase ?? ""}`;
+      if (!map.has(key)) {
+        map.set(key, { project: e.project.name, phase: e.phase ?? "(no phase)", total_hours: 0, employees: new Set() });
+      }
+      const row = map.get(key)!;
+      row.total_hours += e.hours;
+      row.employees.add(e.timesheetWeek.employeeId);
+    }
+
+    const rows = Array.from(map.values())
+      .filter((r) => r.total_hours > 0)
+      .sort((a, b) => a.project.localeCompare(b.project) || a.phase.localeCompare(b.phase))
+      .map(({ employees, ...r }) => ({ ...r, contributors: employees.size }));
+
+    return NextResponse.json({ rows });
+  }
+
   return NextResponse.json({ error: "Unknown report type" }, { status: 400 });
 }

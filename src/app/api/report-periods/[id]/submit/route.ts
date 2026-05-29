@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyAdminNewSubmission } from "@/lib/email";
 
 // POST /api/report-periods/[id]/submit - submit all weeks in the period
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +11,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const period = await db.reportPeriod.findUnique({
     where: { id },
-    include: { weeks: true },
+    include: { weeks: true, employee: { select: { name: true } } },
   });
 
   if (!period) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -46,6 +47,16 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       },
     },
   });
+
+  // Fire-and-forget: notify all admins
+  const employeeName = period.employee.name;
+  db.employee.findMany({ where: { role: "ADMIN", isActive: true }, select: { name: true, email: true } })
+    .then((admins) => {
+      for (const admin of admins) {
+        void notifyAdminNewSubmission(admin.email, admin.name, "timesheet", employeeName, `/admin/report-periods/${id}`);
+      }
+    })
+    .catch(() => {});
 
   return NextResponse.json(updated);
 }

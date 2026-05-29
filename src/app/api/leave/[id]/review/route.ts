@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWeekStart } from "@/lib/utils";
 import { absenceCodeForDay, hoursForDay } from "@/lib/leave-utils";
+import { notifyEmployeeDecision } from "@/lib/email";
 
 export async function POST(
   req: Request,
@@ -21,7 +22,7 @@ export async function POST(
 
   const request = await db.leaveRequest.findUnique({
     where: { id },
-    include: { days: true },
+    include: { days: true, employee: { select: { name: true, email: true } } },
   });
   if (!request) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (request.status !== "PENDING") {
@@ -107,6 +108,12 @@ export async function POST(
       }
     }
   }
+
+  // Fire-and-forget: notify employee
+  void notifyEmployeeDecision(
+    request.employee.email, request.employee.name, "pto",
+    status === "APPROVED" ? "approved" : "rejected", comment, "/leave"
+  );
 
   return NextResponse.json(updated);
 }

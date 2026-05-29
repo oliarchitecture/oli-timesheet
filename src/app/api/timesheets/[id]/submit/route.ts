@@ -22,6 +22,13 @@ export async function POST(
     return NextResponse.json({ error: "Timesheet is not in DRAFT status" }, { status: 400 });
   }
 
+  if (timesheet.reportPeriodId) {
+    return NextResponse.json(
+      { error: "This week belongs to a reporting period. Please submit via the period page." },
+      { status: 400 }
+    );
+  }
+
   const updated = await db.timesheetWeek.update({
     where: { id },
     data: {

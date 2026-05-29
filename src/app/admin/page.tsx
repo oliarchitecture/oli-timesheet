@@ -5,9 +5,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, Clock, Calendar, FolderKanban, ChevronRight, Receipt } from "lucide-react";
+import { Users, Clock, Calendar, FolderKanban, ChevronRight, Receipt, PieChart } from "lucide-react";
 import { formatDate } from "@/lib/utils";
-import type { TimesheetWeek, Employee, LeaveRequest } from "@prisma/client";
+import type { ReportPeriod, Employee, LeaveRequest } from "@prisma/client";
 
 export default async function AdminDashboardPage() {
   const session = await auth();
@@ -20,9 +20,9 @@ export default async function AdminDashboardPage() {
     activeProjects,
     activeEmployees,
   ] = await Promise.all([
-    db.timesheetWeek.findMany({
+    db.reportPeriod.findMany({
       where: { status: "SUBMITTED" },
-      include: { employee: { select: { name: true, email: true } } },
+      include: { employee: { select: { name: true } }, weeks: { include: { entries: { select: { hours: true } } } } },
       orderBy: { submittedAt: "asc" },
       take: 10,
     }),
@@ -45,6 +45,25 @@ export default async function AdminDashboardPage() {
     db.employee.count({ where: { isActive: true } }),
   ]);
 
+  // Top projects this month for the dashboard summary card
+  const now = new Date();
+  const monthStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1));
+  const monthEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59));
+  const monthEntries = await db.timesheetEntry.findMany({
+    where: { timesheetWeek: { weekStartDate: { gte: monthStart, lte: monthEnd } } },
+    include: { project: { select: { name: true } } },
+  });
+  const projectMap = new Map<string, { name: string; hours: number }>();
+  for (const e of monthEntries) {
+    if (!projectMap.has(e.projectId)) projectMap.set(e.projectId, { name: e.project.name, hours: 0 });
+    projectMap.get(e.projectId)!.hours += e.hours;
+  }
+  const topProjects = Array.from(projectMap.values())
+    .sort((a, b) => b.hours - a.hours)
+    .slice(0, 5);
+  const totalMonthHours = Array.from(projectMap.values()).reduce((s, p) => s + p.hours, 0);
+  const currentMonthLabel = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
   return (
     <div className="space-y-6">
       <div>
@@ -62,7 +81,7 @@ export default async function AdminDashboardPage() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-neutral-900">{pendingTimesheets.length}</p>
-                <p className="text-xs text-neutral-500">Timesheets pending</p>
+                <p className="text-xs text-neutral-500">Periods pending</p>
               </div>
             </div>
           </CardContent>
@@ -139,19 +158,24 @@ export default async function AdminDashboardPage() {
               <p className="text-sm text-neutral-500 text-center py-6">No pending timesheets.</p>
             ) : (
               <div className="divide-y divide-neutral-100">
-                {pendingTimesheets.map((ts: TimesheetWeek & { employee: { name: string; email: string } }) => (
-                  <Link
-                    key={ts.id}
-                    href={`/admin/timesheets/${ts.id}`}
-                    className="flex items-center justify-between px-5 py-3 hover:bg-neutral-50 transition-colors"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-neutral-800">{ts.employee.name}</p>
-                      <p className="text-xs text-neutral-500">Week of {formatDate(ts.weekStartDate)}</p>
-                    </div>
-                    <Badge variant="warning">Review</Badge>
-                  </Link>
-                ))}
+                {pendingTimesheets.map((p: ReportPeriod & { employee: { name: string }; weeks: { entries: { hours: number }[] }[] }) => {
+                  const totalHours = p.weeks.flatMap((w) => w.entries).reduce((s, e) => s + e.hours, 0);
+                  return (
+                    <Link
+                      key={p.id}
+                      href={`/admin/report-periods/${p.id}`}
+                      className="flex items-center justify-between px-5 py-3 hover:bg-neutral-50 transition-colors"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-neutral-800">{p.employee.name}</p>
+                        <p className="text-xs text-neutral-500">
+                          {formatDate(p.startDate)} – {formatDate(p.endDate)} · {totalHours}h
+                        </p>
+                      </div>
+                      <Badge variant="warning">Review</Badge>
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -233,6 +257,57 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Hours summary this month */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-neutral-500" />
+              <CardTitle>Hours by Project — {currentMonthLabel}</CardTitle>
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/admin/summary">
+                Full summary <ChevronRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {topProjects.length === 0 ? (
+            <p className="text-sm text-neutral-500 text-center py-6">No hours logged this month yet.</p>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {topProjects.map((p, i) => (
+                <div key={i} className="flex items-center gap-4 px-5 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-neutral-800 truncate">{p.name}</p>
+                    <div className="h-1.5 bg-neutral-100 rounded-full mt-1.5">
+                      <div
+                        className="h-1.5 bg-primary-400 rounded-full"
+                        style={{ width: `${totalMonthHours > 0 ? (p.hours / totalMonthHours) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-neutral-900">{p.hours}h</p>
+                    <p className="text-xs text-neutral-400">
+                      {totalMonthHours > 0 ? `${Math.round((p.hours / totalMonthHours) * 100)}%` : "—"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+              {topProjects.length === 5 && (
+                <div className="px-5 py-3 text-center">
+                  <Link href="/admin/summary" className="text-xs text-primary-600 hover:underline">
+                    View full breakdown →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

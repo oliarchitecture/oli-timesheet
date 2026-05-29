@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { notifyEmployeeDecision } from "@/lib/email";
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -9,7 +10,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
   const { id } = await params;
 
-  const report = await db.expenseReport.findUnique({ where: { id } });
+  const report = await db.expenseReport.findUnique({
+    where: { id },
+    include: { employee: { select: { name: true, email: true } } },
+  });
   if (!report) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (report.status !== "SUBMITTED") {
     return NextResponse.json({ error: "Only SUBMITTED reports can be reviewed" }, { status: 400 });
@@ -33,6 +37,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       reviewedAt: new Date(),
     },
   });
+
+  // Fire-and-forget: notify employee
+  void notifyEmployeeDecision(
+    report.employee.email, report.employee.name, "expense",
+    action === "APPROVE" ? "approved" : "rejected", reviewComment, `/expenses/${id}`
+  );
 
   return NextResponse.json(updated);
 }

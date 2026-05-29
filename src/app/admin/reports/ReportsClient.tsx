@@ -76,6 +76,7 @@ export function ReportsClient({ employees, projects }: { employees: Employee[]; 
                 <SelectContent>
                   <SelectItem value="hours-by-employee">Hours by Employee</SelectItem>
                   <SelectItem value="hours-by-project">Hours by Project</SelectItem>
+                  <SelectItem value="hours-by-phase">Hours by Project / Phase</SelectItem>
                   <SelectItem value="leave-summary">Leave Summary</SelectItem>
                 </SelectContent>
               </Select>
@@ -130,6 +131,7 @@ export function ReportsClient({ employees, projects }: { employees: Employee[]; 
             <CardTitle>
               {reportType === "hours-by-employee" && "Hours by Employee"}
               {reportType === "hours-by-project" && "Hours by Project"}
+              {reportType === "hours-by-phase" && "Hours by Project / Phase"}
               {reportType === "leave-summary" && "Leave Summary"}
             </CardTitle>
           </CardHeader>

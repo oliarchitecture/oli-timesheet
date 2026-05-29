@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Calendar, Plus, ChevronRight, Receipt } from "lucide-react";
+import { Clock, Calendar, Plus, ChevronRight, Receipt, PieChart } from "lucide-react";
 import { getWeekStart, formatDate } from "@/lib/utils";
 import type { TimesheetWeek } from "@prisma/client";
 
@@ -43,6 +43,30 @@ export default async function DashboardPage() {
   const pendingLeave = await db.leaveRequest.count({
     where: { employeeId: session.user.id, status: "PENDING" },
   });
+
+  // Hours by project/phase this month
+  const monthStart = new Date(Date.UTC(today.getFullYear(), today.getMonth(), 1));
+  const monthEnd = new Date(Date.UTC(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59));
+  const monthEntries = await db.timesheetEntry.findMany({
+    where: {
+      timesheetWeek: {
+        employeeId: session.user.id,
+        weekStartDate: { gte: monthStart, lte: monthEnd },
+      },
+    },
+    include: { project: { select: { name: true } } },
+  });
+  const projectMap = new Map<string, { name: string; phase: string; hours: number }>();
+  for (const e of monthEntries) {
+    const key = `${e.projectId}|${e.phase}`;
+    if (!projectMap.has(key)) projectMap.set(key, { name: e.project.name, phase: e.phase, hours: 0 });
+    projectMap.get(key)!.hours += e.hours;
+  }
+  const myMonthSummary = Array.from(projectMap.values())
+    .filter((r) => r.hours > 0)
+    .sort((a, b) => b.hours - a.hours);
+  const myMonthTotal = myMonthSummary.reduce((s, r) => s + r.hours, 0);
+  const currentMonthLabel = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
   // Recent expense reports
   const recentExpenses = await db.expenseReport.findMany({
@@ -248,6 +272,53 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
       </div>
+
+      {/* My hours this month */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-neutral-500" />
+              <CardTitle>My Hours — {currentMonthLabel}</CardTitle>
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/summary">
+                Full summary <ChevronRight className="h-3 w-3" />
+              </Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {myMonthSummary.length === 0 ? (
+            <p className="text-sm text-neutral-500 text-center py-6">No hours logged this month yet.</p>
+          ) : (
+            <div className="divide-y divide-neutral-100">
+              {myMonthSummary.map((row, i) => (
+                <div key={i} className="flex items-center gap-4 px-5 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-neutral-800 truncate">{row.name}</p>
+                    {row.phase && (
+                      <p className="text-xs text-neutral-400 mt-0.5">{row.phase}</p>
+                    )}
+                    <div className="h-1.5 bg-neutral-100 rounded-full mt-1.5">
+                      <div
+                        className="h-1.5 bg-primary-400 rounded-full"
+                        style={{ width: `${myMonthTotal > 0 ? (row.hours / myMonthTotal) * 100 : 0}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-neutral-900">{row.hours}h</p>
+                    <p className="text-xs text-neutral-400">
+                      {myMonthTotal > 0 ? `${Math.round((row.hours / myMonthTotal) * 100)}%` : "—"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

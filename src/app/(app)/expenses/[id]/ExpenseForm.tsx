@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Trash2, Plus, Upload, FileText, Download, Loader2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { ExpenseCategory } from "@prisma/client";
 
 const MONTH_NAMES = [
@@ -125,8 +129,24 @@ export function ExpenseForm({
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deletingReport, setDeletingReport] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isDraft) return;
+    setAutoSaved(false);
+    if (autoSaveRef.current) clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(async () => {
+      await handleSaveSilent();
+      setAutoSaved(true);
+      setTimeout(() => setAutoSaved(false), 3000);
+    }, 2000);
+    return () => { if (autoSaveRef.current) clearTimeout(autoSaveRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, advance, notes]);
 
   const total = items.reduce((s, i) => s + (parseFloat(i.amount) || 0), 0);
   const amountDue = total - (parseFloat(advance) || 0);
@@ -149,6 +169,30 @@ export function ExpenseForm({
     );
   }
 
+  function buildPayload() {
+    return {
+      advanceAmount: parseFloat(advance) || 0,
+      notes: notes || null,
+      items: items.map((i) => ({
+        projectId: i.projectId,
+        date: i.date,
+        category: i.category,
+        otherDescription: i.category === "OTHER" ? i.otherDescription : null,
+        description: i.description,
+        amount: parseFloat(i.amount) || 0,
+      })),
+    };
+  }
+
+  async function handleSaveSilent() {
+    const res = await fetch(`/api/expenses/${reportId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(buildPayload()),
+    });
+    return res.ok;
+  }
+
   async function handleSave() {
     setError("");
     setSaving(true);
@@ -156,18 +200,7 @@ export function ExpenseForm({
       const res = await fetch(`/api/expenses/${reportId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          advanceAmount: parseFloat(advance) || 0,
-          notes: notes || null,
-          items: items.map((i) => ({
-            projectId: i.projectId,
-            date: i.date,
-            category: i.category,
-            otherDescription: i.category === "OTHER" ? i.otherDescription : null,
-            description: i.description,
-            amount: parseFloat(i.amount) || 0,
-          })),
-        }),
+        body: JSON.stringify(buildPayload()),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -180,32 +213,27 @@ export function ExpenseForm({
     }
   }
 
+  async function handleDeleteReport() {
+    setDeletingReport(true);
+    try {
+      const res = await fetch(`/api/expenses/${reportId}`, { method: "DELETE" });
+      if (res.ok) {
+        router.push("/expenses");
+      } else {
+        const data = await res.json();
+        setError(data.error ?? "Failed to delete");
+      }
+    } finally {
+      setDeletingReport(false);
+    }
+  }
+
   async function handleSubmit() {
     setError("");
     setSubmitting(true);
     try {
-      // Save first
-      const saveRes = await fetch(`/api/expenses/${reportId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          advanceAmount: parseFloat(advance) || 0,
-          notes: notes || null,
-          items: items.map((i) => ({
-            projectId: i.projectId,
-            date: i.date,
-            category: i.category,
-            otherDescription: i.category === "OTHER" ? i.otherDescription : null,
-            description: i.description,
-            amount: parseFloat(i.amount) || 0,
-          })),
-        }),
-      });
-      if (!saveRes.ok) {
-        const data = await saveRes.json();
-        setError(data.error ?? "Failed to save");
-        return;
-      }
+      const saved = await handleSaveSilent();
+      if (!saved) { setError("Failed to save before submitting."); return; }
 
       const res = await fetch(`/api/expenses/${reportId}/submit`, { method: "POST" });
       if (!res.ok) {
@@ -270,7 +298,7 @@ export function ExpenseForm({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">
             Expense Report — {MONTH_NAMES[month - 1]} {year}
@@ -279,7 +307,33 @@ export function ExpenseForm({
             {isDraft ? "Fill in your expenses and upload receipts." : "View your submitted expense report."}
           </p>
         </div>
-        <Badge variant={statusVariant[status] ?? "secondary"}>{status}</Badge>
+        <div className="flex items-center gap-3">
+          <Badge variant={statusVariant[status] ?? "secondary"}>{status}</Badge>
+          {isDraft && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm" disabled={deletingReport}>
+                  {deletingReport ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Delete Draft
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete expense report?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete this expense report and all uploaded receipts. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteReport} className="bg-red-600 hover:bg-red-700">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
       </div>
 
       {reviewComment && (
@@ -549,9 +603,30 @@ export function ExpenseForm({
             <Button onClick={handleSave} variant="outline" disabled={saving || submitting}>
               {saving ? "Saving…" : "Save Draft"}
             </Button>
-            <Button onClick={handleSubmit} disabled={!canSubmit || saving || submitting}>
-              {submitting ? "Submitting…" : "Submit for Approval"}
-            </Button>
+            {autoSaved && (
+              <span className="text-xs text-neutral-400">Auto-saved</span>
+            )}
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button disabled={!canSubmit || saving || submitting}>
+                  {submitting ? "Submitting…" : "Submit for Approval"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Submit expense report?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Once submitted, you will not be able to edit this report until it is returned for revision. Make sure all items and receipts are complete.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleSubmit} disabled={submitting}>
+                    {submitting ? "Submitting…" : "Submit"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </>
         )}
         {!isDraft && (

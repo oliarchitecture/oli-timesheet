@@ -32,6 +32,17 @@ model Employee {
   expenseReviews      ExpenseReport[]  @relation("ExpenseReviewer")
   reportPeriods       ReportPeriod[]
   reportPeriodReviews ReportPeriod[]   @relation("PeriodReviewer")
+  passwordResetTokens PasswordResetToken[]
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  employeeId String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
