@@ -49,7 +49,9 @@
       "Bash(xargs grep -l \"debounce\")",
       "Bash(xargs grep -l \"useEffect\")",
       "Bash(npm install *)",
-      "Bash(npm list *)"
+      "Bash(npm list *)",
+      "Bash(npx prisma *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

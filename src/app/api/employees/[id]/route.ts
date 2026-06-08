@@ -28,6 +28,9 @@ export async function PATCH(
     for (const key of adminOnly) {
       if (key in body) updateData[key] = body[key];
     }
+    if (updateData.email && typeof updateData.email === "string") {
+      updateData.email = updateData.email.toLowerCase().trim();
+    }
     if (body.password && typeof body.password === "string") {
       updateData.passwordHash = await bcrypt.hash(body.password, 12);
     }

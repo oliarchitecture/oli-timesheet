@@ -18,7 +18,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
   }
 
-  const existing = await db.employee.findUnique({ where: { email } });
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existing = await db.employee.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     return NextResponse.json({ error: "Email already in use" }, { status: 409 });
   }
@@ -28,7 +30,7 @@ export async function POST(req: Request) {
   const employee = await db.employee.create({
     data: {
       name,
-      email,
+      email: normalizedEmail,
       passwordHash,
       title: title || null,
       phone: phone || null,

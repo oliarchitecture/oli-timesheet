@@ -13,11 +13,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name, email, and password are required" }, { status: 400 });
   }
 
-  if (!email.endsWith("@oliarch.com")) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  if (!normalizedEmail.endsWith("@oliarch.com")) {
     return NextResponse.json({ error: "Only @oliarch.com email addresses are allowed" }, { status: 400 });
   }
 
-  const existing = await db.employee.findUnique({ where: { email } });
+  const existing = await db.employee.findUnique({ where: { email: normalizedEmail } });
   if (existing) {
     return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
   }
@@ -27,7 +29,7 @@ export async function POST(req: Request) {
   await db.employee.create({
     data: {
       name,
-      email,
+      email: normalizedEmail,
       passwordHash,
       role: "EMPLOYEE",
     },
