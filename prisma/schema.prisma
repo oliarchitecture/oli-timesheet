@@ -72,7 +72,7 @@ enum ProjectStatus {
 model TimesheetWeek {
   id             String          @id @default(cuid())
   employeeId     String
-  weekStartDate  DateTime        // Monday of the week (normalized to 00:00:00 UTC)
+  weekStartDate  DateTime        // Sunday of the week (normalized to 00:00:00 UTC); weeks created before the Sun-start change use Monday
   reportPeriodId String?
   status         TimesheetStatus @default(DRAFT)
   reviewedById   String?

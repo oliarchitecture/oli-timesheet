@@ -3,7 +3,7 @@
 import { useState, useTransition, useImperativeHandle, forwardRef, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { cn, formatDateShort, getWeekDays, isSameDay, DAYS_OF_WEEK } from "@/lib/utils";
+import { cn, formatDateShort, getWeekDays, isSameDay } from "@/lib/utils";
 import { Save, Loader2, X, MessageSquare, ChevronUp, ChevronDown } from "lucide-react";
 import { getFederalHolidays, isSameUTCDay } from "@/lib/holidays";
 
@@ -493,7 +493,7 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
                 const blocked = isBlocked(day);
                 return (
                   <th key={i} className={cn("text-center px-1 py-3 font-semibold min-w-[68px]", blocked ? "bg-neutral-50 text-neutral-300" : "text-neutral-600")}>
-                    <div>{DAYS_OF_WEEK[i]}</div>
+                    <div>{day.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}</div>
                     <div className="text-xs font-normal mt-0.5">{formatDateShort(day)}</div>
                   </th>
                 );

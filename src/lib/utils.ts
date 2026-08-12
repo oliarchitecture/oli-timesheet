@@ -20,17 +20,16 @@ export function formatDateShort(date: Date | string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-/** Returns the Monday of the week containing the given date (UTC) */
+/** Returns the Sunday of the week containing the given date (UTC) */
 export function getWeekStart(date: Date): Date {
   const d = new Date(date);
   const day = d.getUTCDay(); // 0 = Sun, 1 = Mon, ...
-  const diff = day === 0 ? -6 : 1 - day; // adjust so Mon = start
-  d.setUTCDate(d.getUTCDate() + diff);
+  d.setUTCDate(d.getUTCDate() - day);
   d.setUTCHours(0, 0, 0, 0);
   return d;
 }
 
-/** Returns an array of 7 Date objects (Mon–Sun) for the week starting on weekStart */
+/** Returns an array of 7 Date objects (Sun–Sat) for the week starting on weekStart */
 export function getWeekDays(weekStart: Date): Date[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart);
@@ -56,4 +55,3 @@ export function daysBetween(start: Date | string, end: Date | string): number {
   return Math.ceil(ms / (1000 * 60 * 60 * 24)) + 1;
 }
 
-export const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];

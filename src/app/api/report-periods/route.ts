@@ -30,14 +30,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "End date must be more than 7 days after start date" }, { status: 400 });
   }
 
-  // Compute all week-start Mondays that overlap the range
-  const firstMonday = getWeekStart(start);
-  const lastMonday = getWeekStart(end);
+  // Compute all week-start dates (Sundays) that overlap the range
+  const firstWeekStart = getWeekStart(start);
+  const lastWeekStart = getWeekStart(end);
 
-  const mondays: Date[] = [];
-  const cur = new Date(firstMonday);
-  while (cur <= lastMonday) {
-    mondays.push(new Date(cur));
+  const weekStarts: Date[] = [];
+  const cur = new Date(firstWeekStart);
+  while (cur <= lastWeekStart) {
+    weekStarts.push(new Date(cur));
     cur.setUTCDate(cur.getUTCDate() + 7);
   }
 
@@ -50,19 +50,19 @@ export async function POST(req: Request) {
     },
   });
 
-  // Upsert a TimesheetWeek for every Monday overlapping the range
-  for (const monday of mondays) {
+  // Upsert a TimesheetWeek for every week overlapping the range
+  for (const weekStart of weekStarts) {
     await db.timesheetWeek.upsert({
       where: {
         employeeId_weekStartDate: {
           employeeId: session.user.id,
-          weekStartDate: monday,
+          weekStartDate: weekStart,
         },
       },
       update: { reportPeriodId: newPeriod.id },
       create: {
         employeeId: session.user.id,
-        weekStartDate: monday,
+        weekStartDate: weekStart,
         reportPeriodId: newPeriod.id,
       },
     });
