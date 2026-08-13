@@ -15,7 +15,7 @@ const ABSENCE_CODES = ["H", "V", "S", "C", "B", "R", "H/D"] as const;
 type AbsenceCode = typeof ABSENCE_CODES[number];
 
 const ABSENCE_HOURS: Record<AbsenceCode, number> = {
-  H: 8, V: 8, S: 8, C: 8, B: 8, R: 8, "H/D": 4,
+  H: 0, V: 0, S: 0, C: 0, B: 0, R: 0, "H/D": 0,
 };
 
 const ABSENCE_LABEL: Record<AbsenceCode, string> = {
@@ -95,9 +95,12 @@ function CellInput({
   if (readOnly) {
     if (code) {
       return (
-        <span className={cn("inline-flex items-center justify-center w-9 h-7 rounded border text-xs font-bold", ABSENCE_COLOR[code])}>
-          {code}
-        </span>
+        <div className="flex flex-col items-center gap-0.5">
+          <span className={cn("inline-flex items-center justify-center w-9 h-7 rounded border text-xs font-bold", ABSENCE_COLOR[code])}>
+            {code}
+          </span>
+          {hours > 0 && <span className="text-[10px] text-neutral-400">{hours}h</span>}
+        </div>
       );
     }
     return (
@@ -131,18 +134,16 @@ function CellInput({
         ))}
       </select>
 
-      {!code && (
-        <input
-          type="number"
-          min="0"
-          max="24"
-          step="0.5"
-          value={hours || ""}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0, null)}
-          placeholder="h"
-          className="w-12 text-center rounded border border-transparent bg-transparent py-0.5 text-sm text-neutral-800 placeholder-neutral-300 hover:border-neutral-200 focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary-300 transition-colors"
-        />
-      )}
+      <input
+        type="number"
+        min="0"
+        max="24"
+        step="0.5"
+        value={hours || ""}
+        onChange={(e) => onChange(parseFloat(e.target.value) || 0, code)}
+        placeholder="h"
+        className="w-12 text-center rounded border border-transparent bg-transparent py-0.5 text-sm text-neutral-800 placeholder-neutral-300 hover:border-neutral-200 focus:border-primary-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary-300 transition-colors"
+      />
     </div>
   );
 }
@@ -224,7 +225,7 @@ function buildInitialEntries(
       projectId: officeAdminProjectId,
       phase: "",
       date: day.toISOString(),
-      hours: 8,
+      hours: 0,
       absenceCode: "H",
     });
   }
