@@ -25,6 +25,15 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   SUBMITTED: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+  REVISION_REQUESTED: "warning",
+};
+
+const statusLabel: Record<string, string> = {
+  DRAFT: "DRAFT",
+  SUBMITTED: "SUBMITTED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVISION_REQUESTED: "Revision Requested",
 };
 
 export default async function AdminExpenseDetailPage({
@@ -65,7 +74,7 @@ export default async function AdminExpenseDetailPage({
           <p className="text-sm text-neutral-500 mt-0.5">{report.employee.name}</p>
         </div>
         <Badge variant={statusVariant[report.status] ?? "secondary"} className="ml-auto">
-          {report.status}
+          {statusLabel[report.status] ?? report.status}
         </Badge>
       </div>
 
@@ -106,7 +115,9 @@ export default async function AdminExpenseDetailPage({
 
       {report.reviewComment && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <span className="font-medium">Review comment: </span>{report.reviewComment}
+          <span className="font-medium">
+            {report.status === "REVISION_REQUESTED" ? "Revision requested: " : "Review comment: "}
+          </span>{report.reviewComment}
         </div>
       )}
 
@@ -187,6 +198,12 @@ export default async function AdminExpenseDetailPage({
         <div className="rounded-xl border border-neutral-200 bg-white p-6 space-y-3">
           <h3 className="text-sm font-semibold text-neutral-800">Review</h3>
           <ExpenseReviewActions reportId={report.id} />
+        </div>
+      )}
+
+      {report.status === "REVISION_REQUESTED" && (
+        <div className="rounded-xl border border-neutral-200 bg-white p-6">
+          <p className="text-sm text-neutral-500">Revision has been requested. Awaiting employee resubmission.</p>
         </div>
       )}
 

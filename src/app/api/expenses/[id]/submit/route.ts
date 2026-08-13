@@ -15,8 +15,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   if (!report || report.employeeId !== session.user.id) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (report.status !== "DRAFT") {
-    return NextResponse.json({ error: "Only DRAFT reports can be submitted" }, { status: 400 });
+  if (report.status !== "DRAFT" && report.status !== "REVISION_REQUESTED") {
+    return NextResponse.json({ error: "Report is not in a submittable status" }, { status: 400 });
   }
   if (report.items.length === 0) {
     return NextResponse.json({ error: "Cannot submit an empty report" }, { status: 400 });

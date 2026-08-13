@@ -37,6 +37,15 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   SUBMITTED: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+  REVISION_REQUESTED: "warning",
+};
+
+const statusLabel: Record<string, string> = {
+  DRAFT: "DRAFT",
+  SUBMITTED: "SUBMITTED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVISION_REQUESTED: "Revision Requested",
 };
 
 interface Project {
@@ -107,7 +116,7 @@ export function ExpenseForm({
   projects,
 }: ExpenseFormProps) {
   const router = useRouter();
-  const isDraft = status === "DRAFT";
+  const isDraft = status === "DRAFT" || status === "REVISION_REQUESTED";
 
   const [items, setItems] = useState<LineItem[]>(() =>
     initialItems.map((item) => ({
@@ -328,8 +337,8 @@ export function ExpenseForm({
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant={statusVariant[status] ?? "secondary"}>{status}</Badge>
-          {isDraft && (
+          <Badge variant={statusVariant[status] ?? "secondary"}>{statusLabel[status] ?? status}</Badge>
+          {status === "DRAFT" && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" size="sm" disabled={deletingReport}>
@@ -358,7 +367,9 @@ export function ExpenseForm({
 
       {reviewComment && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <span className="font-medium">Review comment: </span>{reviewComment}
+          <span className="font-medium">
+            {status === "REVISION_REQUESTED" ? "Revision requested: " : "Review comment: "}
+          </span>{reviewComment}
         </div>
       )}
 
@@ -648,12 +659,12 @@ export function ExpenseForm({
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button disabled={!canSubmit || saving || submitting}>
-                  {submitting ? "Submitting…" : "Submit for Approval"}
+                  {submitting ? "Submitting…" : status === "REVISION_REQUESTED" ? "Resubmit for Approval" : "Submit for Approval"}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Submit expense report?</AlertDialogTitle>
+                  <AlertDialogTitle>{status === "REVISION_REQUESTED" ? "Resubmit expense report?" : "Submit expense report?"}</AlertDialogTitle>
                   <AlertDialogDescription>
                     Once submitted, you will not be able to edit this report until it is returned for revision. Make sure all items and receipts are complete.
                   </AlertDialogDescription>
@@ -661,7 +672,7 @@ export function ExpenseForm({
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? "Submitting…" : "Submit"}
+                    {submitting ? "Submitting…" : status === "REVISION_REQUESTED" ? "Confirm Resubmit" : "Submit"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>

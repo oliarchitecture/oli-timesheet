@@ -21,17 +21,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const body = await req.json();
   const { action, reviewComment } = body;
-  if (action !== "APPROVE" && action !== "REJECT") {
+  if (action !== "APPROVE" && action !== "REJECT" && action !== "REVISION_REQUESTED") {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
-  if (action === "REJECT" && !reviewComment?.trim()) {
-    return NextResponse.json({ error: "Rejection comment is required" }, { status: 400 });
+  if ((action === "REJECT" || action === "REVISION_REQUESTED") && !reviewComment?.trim()) {
+    return NextResponse.json({ error: "A comment is required" }, { status: 400 });
   }
 
+  const statusMap = { APPROVE: "APPROVED", REJECT: "REJECTED", REVISION_REQUESTED: "REVISION_REQUESTED" } as const;
   const updated = await db.expenseReport.update({
     where: { id },
     data: {
-      status: action === "APPROVE" ? "APPROVED" : "REJECTED",
+      status: statusMap[action as keyof typeof statusMap],
       reviewedById: session.user.id,
       reviewComment: reviewComment ?? null,
       reviewedAt: new Date(),
@@ -39,9 +40,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
 
   // Fire-and-forget: notify employee
+  const decisionMap = { APPROVE: "approved", REJECT: "rejected", REVISION_REQUESTED: "revision" } as const;
   void notifyEmployeeDecision(
     report.employee.email, report.employee.name, "expense",
-    action === "APPROVE" ? "approved" : "rejected", reviewComment, `/expenses/${id}`
+    decisionMap[action as keyof typeof decisionMap], reviewComment, `/expenses/${id}`
   );
 
   return NextResponse.json(updated);

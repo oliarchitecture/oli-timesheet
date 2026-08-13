@@ -17,6 +17,15 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   SUBMITTED: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+  REVISION_REQUESTED: "warning",
+};
+
+const statusLabel: Record<string, string> = {
+  DRAFT: "DRAFT",
+  SUBMITTED: "SUBMITTED",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVISION_REQUESTED: "Revision Requested",
 };
 
 export default async function AdminExpensesPage({
@@ -91,7 +100,7 @@ export default async function AdminExpensesPage({
                         {r.submittedAt ? ` · Submitted ${new Date(r.submittedAt).toLocaleDateString()}` : ""}
                       </p>
                     </div>
-                    <Badge variant={statusVariant[r.status] ?? "secondary"}>{r.status}</Badge>
+                    <Badge variant={statusVariant[r.status] ?? "secondary"}>{statusLabel[r.status] ?? r.status}</Badge>
                   </Link>
                 );
               })}
