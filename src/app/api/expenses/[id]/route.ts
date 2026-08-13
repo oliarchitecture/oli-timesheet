@@ -8,7 +8,7 @@ async function getReport(id: string, userId: string, isAdmin: boolean) {
     include: {
       employee: { select: { id: true, name: true, email: true, title: true } },
       reviewer: { select: { id: true, name: true } },
-      items: { include: { project: { select: { id: true, name: true } } }, orderBy: { date: "asc" } },
+      items: { include: { project: { select: { id: true, name: true } } }, orderBy: { order: "asc" } },
       documents: { orderBy: { uploadedAt: "asc" } },
     },
   });
@@ -55,7 +55,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         otherDescription?: string;
         description: string;
         amount: number;
-      }) => ({
+      }, idx: number) => ({
         expenseReportId: id,
         projectId: item.projectId,
         date: new Date(item.date),
@@ -63,6 +63,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         otherDescription: item.otherDescription ?? null,
         description: item.description,
         amount: Number(item.amount),
+        order: idx,
       })),
     });
   }

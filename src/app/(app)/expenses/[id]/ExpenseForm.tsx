@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Trash2, Plus, Upload, FileText, Download, Loader2 } from "lucide-react";
+import { Trash2, Plus, Upload, FileText, Download, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -161,6 +161,26 @@ export function ExpenseForm({
 
   function removeItem(key: string) {
     setItems((prev) => prev.filter((i) => i._key !== key));
+  }
+
+  function moveItemUp(key: string) {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i._key === key);
+      if (idx <= 0) return prev;
+      const next = [...prev];
+      [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+      return next;
+    });
+  }
+
+  function moveItemDown(key: string) {
+    setItems((prev) => {
+      const idx = prev.findIndex((i) => i._key === key);
+      if (idx === -1 || idx >= prev.length - 1) return prev;
+      const next = [...prev];
+      [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+      return next;
+    });
   }
 
   function updateItem(key: string, field: keyof LineItem, value: string) {
@@ -356,7 +376,7 @@ export function ExpenseForm({
                 <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-36">Category</th>
                 <th className="px-4 py-2.5 text-left font-medium text-neutral-600">Description</th>
                 <th className="px-4 py-2.5 text-right font-medium text-neutral-600 w-28">Amount ($)</th>
-                {isDraft && <th className="w-10" />}
+                {isDraft && <th className="w-20" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
@@ -367,7 +387,7 @@ export function ExpenseForm({
                   </td>
                 </tr>
               )}
-              {items.map((item) => (
+              {items.map((item, idx) => (
                 <tr key={item._key}>
                   <td className="px-4 py-2">
                     {isDraft ? (
@@ -461,12 +481,31 @@ export function ExpenseForm({
                   </td>
                   {isDraft && (
                     <td className="px-2 py-2">
-                      <button
-                        onClick={() => removeItem(item._key)}
-                        className="p-1 text-neutral-400 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={() => moveItemUp(item._key)}
+                          disabled={idx === 0}
+                          className="p-0.5 text-neutral-400 hover:text-neutral-600 disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Move up"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => moveItemDown(item._key)}
+                          disabled={idx === items.length - 1}
+                          className="p-0.5 text-neutral-400 hover:text-neutral-600 disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Move down"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeItem(item._key)}
+                          className="p-1 text-neutral-400 hover:text-red-500 transition-colors"
+                          title="Remove item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   )}
                 </tr>
