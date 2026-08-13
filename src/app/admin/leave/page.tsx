@@ -10,6 +10,14 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   PENDING: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+  REVISION_REQUESTED: "warning",
+};
+
+const statusLabel: Record<string, string> = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVISION_REQUESTED: "Revision Requested",
 };
 
 const leaveTypeLabel: Record<string, string> = {
@@ -18,6 +26,7 @@ const leaveTypeLabel: Record<string, string> = {
   PERSONAL: "Personal / Non-Paid Time",
   COMP_DAY: "Comp Day",
   OTHER: "Other",
+  MIXED: "Mixed",
 };
 
 export default async function AdminLeavePage() {
@@ -65,7 +74,7 @@ export default async function AdminLeavePage() {
                         {numDays} day{numDays !== 1 ? "s" : ""}
                       </p>
                     </div>
-                    <Badge variant={statusVariant[lr.status] ?? "secondary"}>{lr.status}</Badge>
+                    <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>
                   </Link>
                 );
               })}
