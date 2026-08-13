@@ -112,7 +112,8 @@ export function PeriodView({
   today.setUTCHours(0, 0, 0, 0);
   const periodEndDate = new Date(endDate);
   periodEndDate.setUTCHours(0, 0, 0, 0);
-  const canSubmitNow = status === "DRAFT" && !isAdmin && periodEndDate <= today;
+  const canSubmitNow = (status === "DRAFT" || status === "REVISION_REQUESTED") && !isAdmin && periodEndDate <= today;
+  const isResubmit = status === "REVISION_REQUESTED";
 
   if (!selectedWeek) {
     return <p className="text-sm text-neutral-500 py-8 text-center">No weeks found for this timesheet.</p>;
@@ -171,7 +172,7 @@ export function PeriodView({
             <p className="text-sm text-neutral-500">{weeks.length} week{weeks.length !== 1 ? "s" : ""}</p>
           </div>
 
-          {status === "DRAFT" && !isAdmin && (
+          {(status === "DRAFT" || status === "REVISION_REQUESTED") && !isAdmin && (
             <div className="flex flex-col items-end gap-1">
               {canSubmitNow ? (
                 <AlertDialog>
@@ -180,13 +181,13 @@ export function PeriodView({
                       {submitting ? (
                         <><Loader2 className="h-4 w-4 animate-spin" /> Submitting…</>
                       ) : (
-                        <><Send className="h-4 w-4" /> Submit Timesheet</>
+                        <><Send className="h-4 w-4" /> {isResubmit ? "Resubmit Timesheet" : "Submit Timesheet"}</>
                       )}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Submit timesheet?</AlertDialogTitle>
+                      <AlertDialogTitle>{isResubmit ? "Resubmit timesheet?" : "Submit timesheet?"}</AlertDialogTitle>
                       <AlertDialogDescription>
                         Once submitted, you will not be able to edit this timesheet until it is returned for revision. Make sure all entries are complete.
                       </AlertDialogDescription>
@@ -195,7 +196,7 @@ export function PeriodView({
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                       <AlertDialogAction onClick={handleSubmitPeriod} disabled={submitting}>
                         {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                        Confirm Submit
+                        {isResubmit ? "Confirm Resubmit" : "Confirm Submit"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -205,7 +206,7 @@ export function PeriodView({
                   disabled
                   title={`Period ends ${formatDateShort(periodEndDate)}. Submit after the period closes.`}
                 >
-                  <Send className="h-4 w-4" /> Submit Timesheet
+                  <Send className="h-4 w-4" /> {isResubmit ? "Resubmit Timesheet" : "Submit Timesheet"}
                 </Button>
               )}
               {!canSubmitNow && (

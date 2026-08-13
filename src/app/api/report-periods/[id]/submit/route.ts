@@ -18,8 +18,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (period.employeeId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (period.status !== "DRAFT") {
-    return NextResponse.json({ error: "Period is not in DRAFT status" }, { status: 400 });
+  if (period.status !== "DRAFT" && period.status !== "REVISION_REQUESTED") {
+    return NextResponse.json({ error: "Period is not in a submittable status" }, { status: 400 });
   }
 
   const now = new Date();
