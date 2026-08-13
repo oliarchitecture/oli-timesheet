@@ -19,34 +19,37 @@ export async function GET() {
   return NextResponse.json(requests);
 }
 
+const VALID_TYPES = ["VACATION", "SICK", "PERSONAL", "OTHER", "COMP_DAY"] as const;
+type ValidLeaveType = typeof VALID_TYPES[number];
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { type, startDate, endDate, days } = await req.json() as {
-    type: string;
-    startDate: string;
-    endDate: string;
-    days: { date: string; halfDay: boolean; reason?: string }[];
+  const { days } = await req.json() as {
+    days: { date: string; type: string; halfDay: boolean; reason?: string }[];
   };
 
-  if (!type || !startDate || !endDate) {
-    return NextResponse.json({ error: "Type, start date, and end date are required" }, { status: 400 });
-  }
   if (!Array.isArray(days) || days.length === 0) {
     return NextResponse.json({ error: "At least one working day is required" }, { status: 400 });
   }
-
-  const validTypes = ["VACATION", "SICK", "PERSONAL", "OTHER", "COMP_DAY"] as const;
-  if (!validTypes.includes(type as typeof validTypes[number])) {
-    return NextResponse.json({ error: "Invalid leave type" }, { status: 400 });
+  for (const d of days) {
+    if (!d.date || !VALID_TYPES.includes(d.type as ValidLeaveType)) {
+      return NextResponse.json({ error: "Each day requires a valid date and leave type" }, { status: 400 });
+    }
   }
+
+  const dates = days.map((d) => d.date).sort();
+  const startDate = dates[0];
+  const endDate = dates[dates.length - 1];
+  const distinctTypes = new Set(days.map((d) => d.type));
+  const requestType = distinctTypes.size === 1 ? (days[0].type as ValidLeaveType) : "MIXED";
 
   const request = await db.$transaction(async (tx) => {
     const parent = await tx.leaveRequest.create({
       data: {
         employeeId: session.user.id,
-        type: type as "VACATION" | "SICK" | "PERSONAL" | "OTHER" | "COMP_DAY",
+        type: requestType,
         startDate: new Date(startDate),
         endDate: new Date(endDate),
       },
@@ -55,6 +58,7 @@ export async function POST(req: Request) {
       data: days.map((d) => ({
         leaveRequestId: parent.id,
         date: new Date(d.date),
+        type: d.type as ValidLeaveType,
         halfDay: d.halfDay === true,
         reason: d.reason ?? null,
       })),

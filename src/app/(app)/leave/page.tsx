@@ -13,6 +13,14 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   PENDING: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+  REVISION_REQUESTED: "warning",
+};
+
+const statusLabel: Record<string, string> = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVISION_REQUESTED: "Revision Requested",
 };
 
 const leaveTypeLabel: Record<string, string> = {
@@ -21,6 +29,7 @@ const leaveTypeLabel: Record<string, string> = {
   PERSONAL: "Personal / Non-Paid Time",
   COMP_DAY: "Comp Day",
   OTHER: "Other",
+  MIXED: "Mixed",
 };
 
 const leaveTypeColor: Record<string, string> = {
@@ -117,8 +126,13 @@ export default async function PTOPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant={statusVariant[lr.status] ?? "secondary"}>{lr.status}</Badge>
+                      <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>
                       {lr.status === "PENDING" && <DeletePTOButton requestId={lr.id} />}
+                      {lr.status === "REVISION_REQUESTED" && (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/leave/${lr.id}/edit`}>Edit &amp; Resubmit</Link>
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );

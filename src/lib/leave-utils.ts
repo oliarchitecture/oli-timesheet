@@ -6,6 +6,7 @@ const LEAVE_TYPE_TO_ABSENCE_CODE: Record<LeaveType, string> = {
   COMP_DAY: "C",
   PERSONAL: "V", // no dedicated code; treat as Vacation
   OTHER: "V",    // fallback
+  MIXED: "V",    // request-level summary value only; never set on an individual day
 };
 
 /** Returns "H/D" for half-day entries, otherwise the leave-type absence code. */

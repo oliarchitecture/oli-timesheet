@@ -11,6 +11,14 @@ const statusVariant: Record<string, "success" | "warning" | "secondary" | "destr
   PENDING: "warning",
   APPROVED: "success",
   REJECTED: "destructive",
+  REVISION_REQUESTED: "warning",
+};
+
+const statusLabel: Record<string, string> = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+  REVISION_REQUESTED: "Revision Requested",
 };
 
 const leaveTypeLabel: Record<string, string> = {
@@ -19,6 +27,7 @@ const leaveTypeLabel: Record<string, string> = {
   PERSONAL: "Personal / Non-Paid Time",
   COMP_DAY: "Comp Day",
   OTHER: "Other",
+  MIXED: "Mixed",
 };
 
 export default async function AdminLeaveReviewPage({ params }: { params: Promise<{ id: string }> }) {
@@ -44,7 +53,7 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
       <BackButton />
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-neutral-900">PTO Request</h2>
-        <Badge variant={statusVariant[request.status] ?? "secondary"}>{request.status}</Badge>
+        <Badge variant={statusVariant[request.status] ?? "secondary"}>{statusLabel[request.status] ?? request.status}</Badge>
       </div>
 
       <Card>
@@ -82,6 +91,7 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                     <tr>
                       <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Date</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Type</th>
+                      <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Day</th>
                       <th className="text-left px-3 py-2 text-xs font-medium text-neutral-500">Reason</th>
                     </tr>
                   </thead>
@@ -96,6 +106,7 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                             timeZone: "UTC",
                           })}
                         </td>
+                        <td className="px-3 py-2 text-neutral-700">{leaveTypeLabel[d.type] ?? d.type}</td>
                         <td className="px-3 py-2">
                           <Badge variant={d.halfDay ? "secondary" : "outline"}>
                             {d.halfDay ? "Half Day" : "Full Day"}
@@ -112,7 +123,9 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
 
           {request.reviewComment && (
             <div>
-              <p className="text-xs text-neutral-500 mb-0.5">Review Comment</p>
+              <p className="text-xs text-neutral-500 mb-0.5">
+                {request.status === "REVISION_REQUESTED" ? "Revision Requested" : "Review Comment"}
+              </p>
               <p className="text-sm text-neutral-700 bg-amber-50 rounded p-3 border border-amber-200">
                 {request.reviewComment}
               </p>
@@ -125,7 +138,11 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
             </div>
           )}
 
-          {request.status !== "PENDING" && (
+          {request.status === "REVISION_REQUESTED" && (
+            <p className="text-sm text-neutral-500">Revision has been requested. Awaiting employee resubmission.</p>
+          )}
+
+          {(request.status === "APPROVED" || request.status === "REJECTED") && (
             <p className="text-sm text-neutral-500">
               {request.status === "APPROVED" ? "Approved" : "Rejected"} by{" "}
               {request.reviewer?.name} on {formatDate(request.reviewedAt!)}

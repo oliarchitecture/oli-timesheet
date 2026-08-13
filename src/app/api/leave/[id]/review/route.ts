@@ -16,9 +16,16 @@ export async function POST(
   }
 
   const { status, comment } = await req.json() as {
-    status: "APPROVED" | "REJECTED";
+    status: "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
     comment?: string;
   };
+
+  if (status !== "APPROVED" && status !== "REJECTED" && status !== "REVISION_REQUESTED") {
+    return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+  }
+  if ((status === "REJECTED" || status === "REVISION_REQUESTED") && !comment?.trim()) {
+    return NextResponse.json({ error: "A comment is required" }, { status: 400 });
+  }
 
   const request = await db.leaveRequest.findUnique({
     where: { id },
@@ -40,30 +47,33 @@ export async function POST(
   });
 
   if (status === "APPROVED") {
-    // Calculate total days from per-day records
-    const totalDays = request.days.reduce(
-      (sum, d) => sum + (d.halfDay ? 0.5 : 1.0),
-      0
-    );
+    // Group days by their individual type and sum days per type
+    const daysByType = new Map<string, number>();
+    for (const d of request.days) {
+      const amount = d.halfDay ? 0.5 : 1.0;
+      daysByType.set(d.type, (daysByType.get(d.type) ?? 0) + amount);
+    }
     const year = new Date(request.startDate).getFullYear();
 
-    await db.leaveBalance.upsert({
-      where: {
-        employeeId_year_type: {
+    for (const [type, totalDays] of daysByType) {
+      await db.leaveBalance.upsert({
+        where: {
+          employeeId_year_type: {
+            employeeId: request.employeeId,
+            year,
+            type: type as typeof request.type,
+          },
+        },
+        update: { usedDays: { increment: totalDays } },
+        create: {
           employeeId: request.employeeId,
           year,
-          type: request.type,
+          type: type as typeof request.type,
+          totalDays: 20,
+          usedDays: totalDays,
         },
-      },
-      update: { usedDays: { increment: totalDays } },
-      create: {
-        employeeId: request.employeeId,
-        year,
-        type: request.type,
-        totalDays: 20,
-        usedDays: totalDays,
-      },
-    });
+      });
+    }
 
     // Pre-fill any existing DRAFT timesheet weeks that overlap the approved leave days
     const officeAdminProject = await db.project.findFirst({
@@ -94,7 +104,7 @@ export async function POST(
           },
           update: {
             hours: hoursForDay(day.halfDay),
-            absenceCode: absenceCodeForDay(request.type, day.halfDay),
+            absenceCode: absenceCodeForDay(day.type, day.halfDay),
           },
           create: {
             timesheetWeekId: week.id,
@@ -102,7 +112,7 @@ export async function POST(
             phase: "",
             date: new Date(day.date),
             hours: hoursForDay(day.halfDay),
-            absenceCode: absenceCodeForDay(request.type, day.halfDay),
+            absenceCode: absenceCodeForDay(day.type, day.halfDay),
           },
         });
       }
@@ -110,9 +120,10 @@ export async function POST(
   }
 
   // Fire-and-forget: notify employee
+  const decisionMap = { APPROVED: "approved", REJECTED: "rejected", REVISION_REQUESTED: "revision" } as const;
   void notifyEmployeeDecision(
     request.employee.email, request.employee.name, "pto",
-    status === "APPROVED" ? "approved" : "rejected", comment, "/leave"
+    decisionMap[status], comment, "/leave"
   );
 
   return NextResponse.json(updated);

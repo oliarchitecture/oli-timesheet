@@ -155,6 +155,7 @@ model LeaveRequestDay {
   id             String       @id @default(cuid())
   leaveRequestId String
   date           DateTime
+  type           LeaveType    @default(VACATION)
   halfDay        Boolean      @default(false)
   reason         String?
 
@@ -169,12 +170,14 @@ enum LeaveType {
   PERSONAL
   OTHER
   COMP_DAY
+  MIXED
 }
 
 enum LeaveStatus {
   PENDING
   APPROVED
   REJECTED
+  REVISION_REQUESTED
 }
 
 model LeaveBalance {
@@ -245,6 +248,7 @@ enum ExpenseStatus {
   SUBMITTED
   APPROVED
   REJECTED
+  REVISION_REQUESTED
 }
 
 enum ExpenseCategory {
