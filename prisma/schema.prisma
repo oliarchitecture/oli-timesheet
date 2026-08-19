@@ -145,6 +145,7 @@ model LeaveRequest {
   reviewComment String?
   createdAt     DateTime    @default(now())
   reviewedAt    DateTime?
+  calendarInviteUid String?
 
   employee Employee         @relation(fields: [employeeId], references: [id])
   reviewer Employee?        @relation("LeaveReviewer", fields: [reviewedById], references: [id])

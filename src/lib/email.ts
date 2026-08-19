@@ -12,13 +12,31 @@ const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 export { APP_URL };
 
-export async function sendEmail(to: string, subject: string, html: string) {
+export interface EmailAttachment {
+  filename: string;
+  content: string; // base64-encoded
+  contentType?: string;
+}
+
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  attachments?: EmailAttachment[],
+  cc?: string
+): Promise<boolean> {
   const client = getResend();
-  if (!client) return; // silently skip if RESEND_API_KEY not set
+  if (!client) return false; // silently skip if RESEND_API_KEY not set
   try {
-    await client.emails.send({ from: FROM, to, subject, html });
+    const { error } = await client.emails.send({ from: FROM, to, cc, subject, html, attachments });
+    if (error) {
+      console.error("[email] Resend rejected the send:", error);
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error("[email] Failed to send:", err);
+    return false;
   }
 }
 

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { getWeekStart } from "@/lib/utils";
 import { absenceCodeForDay, hoursForDay } from "@/lib/leave-utils";
 import { notifyEmployeeDecision } from "@/lib/email";
+import { sendPtoCalendarInvite } from "@/lib/calendar-invite";
 
 export async function POST(
   req: Request,
@@ -117,6 +118,9 @@ export async function POST(
         });
       }
     }
+
+    // Fire-and-forget: email the employee a calendar invite for their approved PTO
+    void sendPtoCalendarInvite({ ...updated, days: request.days }, request.employee);
   }
 
   // Fire-and-forget: notify employee
