@@ -9,10 +9,11 @@ import { db } from "@/lib/db";
  * If employeeId is omitted, renews all active employees.
  *
  * Allotment per OLI policy (OLI2025_OfficeGuidelines):
- *   Year 0 (first year, <1 year):  10 vacation + 5 sick
- *   Year 1–4:                      10 + 1/yr vacation (max 15) + 5 sick, +1/yr
- *   Year 5+:                       15 vacation + 7 sick
- * Employees also accrue +1 vacation day per year of service, capped at 15.
+ *   Year 0 (first year, <1 year):  10 vacation + 5 sick, tracked separately
+ *   Year 1+:                       combined pool — 10 + 1/yr vacation (max 15) + 5 sick (fixed)
+ * Employees accrue +1 vacation day per year of service, capped at 15 (so the
+ * combined pool grows from 15 to a max of 20 — matching the policy's separate
+ * "never more than 20 PTO days accumulated" rule). Sick never grows.
  */
 
 function getAllotment(startDate: Date | null, targetYear: number): Record<string, number> {
@@ -23,10 +24,9 @@ function getAllotment(startDate: Date | null, targetYear: number): Record<string
   if (yearsOfService < 1) {
     return { VACATION: 10, SICK: 5, PERSONAL: 0, COMP_DAY: 0 };
   }
-  // +1 vacation day per year of service, capped at 15
+  // +1 vacation day per year of service, capped at 15; sick is always 5
   const vacationDays = Math.min(10 + yearsOfService, 15);
-  const sickDays = yearsOfService >= 5 ? 7 : 5;
-  return { VACATION: vacationDays, SICK: sickDays, PERSONAL: 5, COMP_DAY: 0 };
+  return { VACATION: vacationDays, SICK: 5, PERSONAL: 5, COMP_DAY: 0 };
 }
 
 export async function POST(req: Request) {

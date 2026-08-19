@@ -51,14 +51,28 @@ export default async function PTOPage() {
   ]);
 
   const entitlement = employee?.startDate ? computePtoEntitlement(employee.startDate) : null;
-  const vacationUsed = balances.find((b) => b.type === "VACATION")?.usedDays ?? 0;
-  const sickUsed = balances.find((b) => b.type === "SICK")?.usedDays ?? 0;
+  const vacationBalance = balances.find((b) => b.type === "VACATION");
+  const sickBalance = balances.find((b) => b.type === "SICK");
+  const vacationUsed = vacationBalance?.usedDays ?? 0;
+  const sickUsed = sickBalance?.usedDays ?? 0;
   const holidayCount = getFederalHolidays(new Date().getFullYear()).length;
   const compDayBalance = balances.find((b) => b.type === "COMP_DAY");
 
+  // An admin-set total (saved as a nonzero value via the employee's PTO Balances
+  // form) always wins over the guideline formula — some cases are personal/manual.
+  // A stored 0 (or no row at all) means "not yet set", so it falls back to the
+  // auto-computed guideline entitlement.
+  const vacationTotal = vacationBalance && vacationBalance.totalDays > 0
+    ? vacationBalance.totalDays
+    : entitlement?.vacationTotal ?? 0;
+  const sickTotal = sickBalance && sickBalance.totalDays > 0
+    ? sickBalance.totalDays
+    : entitlement?.sickTotal ?? 0;
+  const combinedTotal = vacationTotal + sickTotal;
+
   // Stretch tiles to fill the row (matching the PTO Requests card width below)
-  // regardless of whether there are 2, 3, or 4 of them.
-  const tileCount = 1 + (entitlement ? (entitlement.combined ? 1 : 2) : 0) + (compDayBalance ? 1 : 0);
+  // regardless of whether there are 3 or 4 of them.
+  const tileCount = 2 + (entitlement ? (entitlement.combined ? 1 : 2) : 0);
   const balanceGridClass =
     tileCount >= 4 ? "grid grid-cols-2 sm:grid-cols-4 gap-3" :
     tileCount === 3 ? "grid grid-cols-2 sm:grid-cols-3 gap-3" :
@@ -100,9 +114,9 @@ export default async function PTOPage() {
               </div>
               <div className="flex items-baseline gap-2 flex-wrap">
                 <p className="text-3xl font-bold">
-                  {entitlement.combinedTotal - (vacationUsed + sickUsed)}
+                  {combinedTotal - (vacationUsed + sickUsed)}
                 </p>
-                <p className="text-xs opacity-70">remaining days out of {entitlement.combinedTotal} days</p>
+                <p className="text-xs opacity-70">remaining days out of {combinedTotal} days</p>
               </div>
               <p className="text-xs opacity-70 mt-0.5">
                 {entitlement.nextRenewalTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
@@ -119,8 +133,8 @@ export default async function PTOPage() {
                   <p className="text-xs font-medium">Vacation</p>
                 </div>
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-3xl font-bold">{entitlement.vacationTotal - vacationUsed}</p>
-                  <p className="text-xs opacity-70">remaining days out of {entitlement.vacationTotal} days</p>
+                  <p className="text-3xl font-bold">{vacationTotal - vacationUsed}</p>
+                  <p className="text-xs opacity-70">remaining days out of {vacationTotal} days</p>
                 </div>
                 <p className="text-xs opacity-70 mt-0.5">
                   {entitlement.nextVacationTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
@@ -133,8 +147,8 @@ export default async function PTOPage() {
                   <p className="text-xs font-medium">Sick</p>
                 </div>
                 <div className="flex items-baseline gap-2 flex-wrap">
-                  <p className="text-3xl font-bold">{entitlement.sickTotal - sickUsed}</p>
-                  <p className="text-xs opacity-70">remaining days out of {entitlement.sickTotal} days</p>
+                  <p className="text-3xl font-bold">{sickTotal - sickUsed}</p>
+                  <p className="text-xs opacity-70">remaining days out of {sickTotal} days</p>
                 </div>
                 <p className="text-xs opacity-70 mt-0.5">
                   {entitlement.nextSickTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
@@ -145,21 +159,19 @@ export default async function PTOPage() {
           )
         )}
 
-        {compDayBalance && (
-          <div className="rounded-xl border bg-rose-50 border-rose-200 text-rose-700 p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <CalendarDays className="h-4 w-4 opacity-70" />
-              <p className="text-xs font-medium">Comp Day</p>
-            </div>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <p className="text-3xl font-bold">{compDayBalance.totalDays - compDayBalance.usedDays}</p>
-              <p className="text-xs opacity-70">remaining days out of {compDayBalance.totalDays} days</p>
-            </div>
-            {compDayBalance.usedDays > 0 && (
-              <p className="text-xs opacity-60 mt-1">{compDayBalance.usedDays} used</p>
-            )}
+        <div className="rounded-xl border bg-rose-50 border-rose-200 text-rose-700 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarDays className="h-4 w-4 opacity-70" />
+            <p className="text-xs font-medium">Comp Day</p>
           </div>
-        )}
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <p className="text-3xl font-bold">{(compDayBalance?.totalDays ?? 0) - (compDayBalance?.usedDays ?? 0)}</p>
+            <p className="text-xs opacity-70">remaining days out of {compDayBalance?.totalDays ?? 0} days</p>
+          </div>
+          {(compDayBalance?.usedDays ?? 0) > 0 && (
+            <p className="text-xs opacity-60 mt-1">{compDayBalance!.usedDays} used</p>
+          )}
+        </div>
       </div>
 
       {/* PTO Requests */}

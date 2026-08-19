@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { computePtoEntitlement } from "@/lib/leave-utils";
 
 export async function PATCH(
   req: Request,
@@ -44,6 +45,30 @@ export async function PATCH(
       title: true, phone: true, isActive: true, startDate: true, photoUrl: true,
     },
   });
+
+  // If a start date was just set, auto-fill this year's Vacation/Sick allotment
+  // per the OLI guidelines — but only where it hasn't already been set to a
+  // nonzero value by an admin (that's treated as an intentional override).
+  if ("startDate" in updateData && employee.startDate) {
+    const entitlement = computePtoEntitlement(employee.startDate);
+    const year = new Date().getFullYear();
+    const targets: { type: "VACATION" | "SICK"; total: number }[] = [
+      { type: "VACATION", total: entitlement.vacationTotal },
+      { type: "SICK", total: entitlement.sickTotal },
+    ];
+    for (const { type, total } of targets) {
+      const existing = await db.leaveBalance.findUnique({
+        where: { employeeId_year_type: { employeeId: employee.id, year, type } },
+      });
+      if (!existing || existing.totalDays === 0) {
+        await db.leaveBalance.upsert({
+          where: { employeeId_year_type: { employeeId: employee.id, year, type } },
+          update: { totalDays: total },
+          create: { employeeId: employee.id, year, type, totalDays: total, usedDays: 0 },
+        });
+      }
+    }
+  }
 
   return NextResponse.json(employee);
 }
