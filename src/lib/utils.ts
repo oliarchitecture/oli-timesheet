@@ -20,6 +20,15 @@ export function formatDateShort(date: Date | string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+/** Formats a date as YYYY/MM/DD (UTC) */
+export function formatDateSlash(date: Date | string): string {
+  const d = new Date(date);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}/${m}/${day}`;
+}
+
 /** Returns the Sunday of the week containing the given date (UTC) */
 export function getWeekStart(date: Date): Date {
   const d = new Date(date);
