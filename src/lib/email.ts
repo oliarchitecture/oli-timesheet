@@ -8,7 +8,9 @@ function getResend() {
 }
 
 const FROM = process.env.EMAIL_FROM ?? "OLI Architecture <no-reply@oliarch.com>";
-const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+// Falls back to the production URL rather than localhost — an emailed link should
+// never point at someone's local machine.
+const APP_URL = process.env.NEXTAUTH_URL ?? "https://oli-timesheet.vercel.app";
 
 export { APP_URL };
 
@@ -97,6 +99,17 @@ export async function notifyNewRequestNote(
 <p><strong>${fromName}</strong> added a note to the request "${subject}":</p>
 <p style="background:#f5f5f5;padding:12px;border-radius:6px;">${noteBody}</p>
 <p><a href="${APP_URL}${linkUrl}">View and reply →</a></p>
+<p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`
+  );
+}
+
+export async function sendTimesheetReminderEmail(email: string, name: string): Promise<boolean> {
+  return sendEmail(
+    email,
+    "Reminder: Submit Your Timesheet and Expenses",
+    `<p>Hi ${name},</p>
+<p>This is a reminder to submit your timesheet and expense form by today. If you have already submitted, you can ignore this message.</p>
+<p><a href="${APP_URL}/login">Log in to submit →</a></p>
 <p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`
   );
 }
