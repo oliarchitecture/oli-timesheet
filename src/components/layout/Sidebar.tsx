@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Receipt,
   BookOpen,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const employeeNav: NavItem[] = [
   { href: "/summary", label: "My Summary", icon: PieChart },
   { href: "/profile", label: "My Profile", icon: Settings },
   { href: "/docs/OLI2025_OfficeGuidelines_HO.pdf", label: "Office Guidelines", icon: BookOpen, external: true },
+  { href: "/requests", label: "Requests", icon: MessageSquareText },
 ];
 
 const adminNav: NavItem[] = [
@@ -43,6 +45,7 @@ const adminNav: NavItem[] = [
   { href: "/admin/timesheets", label: "Timesheets", icon: Clock },
   { href: "/admin/leave", label: "PTO Requests", icon: Calendar },
   { href: "/admin/expenses", label: "Expenses", icon: Receipt },
+  { href: "/admin/requests", label: "Requests", icon: MessageSquareText },
   { href: "/admin/summary", label: "Summary", icon: PieChart },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
 ];

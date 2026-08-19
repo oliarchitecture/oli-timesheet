@@ -45,11 +45,11 @@ export async function sendEmail(
 export async function notifyAdminNewSubmission(
   adminEmail: string,
   adminName: string,
-  type: "timesheet" | "expense" | "pto",
+  type: "timesheet" | "expense" | "pto" | "request",
   employeeName: string,
   linkUrl: string
 ) {
-  const labels = { timesheet: "Timesheet", expense: "Expense Report", pto: "PTO Request" };
+  const labels = { timesheet: "Timesheet", expense: "Expense Report", pto: "PTO Request", request: "Request" };
   const label = labels[type];
   await sendEmail(
     adminEmail,
@@ -64,12 +64,12 @@ export async function notifyAdminNewSubmission(
 export async function notifyEmployeeDecision(
   employeeEmail: string,
   employeeName: string,
-  type: "timesheet" | "expense" | "pto",
+  type: "timesheet" | "expense" | "pto" | "request",
   decision: "approved" | "rejected" | "revision",
   comment?: string | null,
   linkUrl?: string
 ) {
-  const labels = { timesheet: "Timesheet", expense: "Expense Report", pto: "PTO Request" };
+  const labels = { timesheet: "Timesheet", expense: "Expense Report", pto: "PTO Request", request: "Request" };
   const label = labels[type];
   const decisionText = { approved: "approved", rejected: "rejected", revision: "returned for revision" }[decision];
   const subject = `Your ${label} has been ${decisionText}`;
@@ -80,6 +80,25 @@ export async function notifyEmployeeDecision(
   body += `</p><p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`;
 
   await sendEmail(employeeEmail, subject, body);
+}
+
+export async function notifyNewRequestNote(
+  toEmail: string,
+  toName: string,
+  fromName: string,
+  subject: string,
+  noteBody: string,
+  linkUrl: string
+) {
+  await sendEmail(
+    toEmail,
+    `New note on "${subject}"`,
+    `<p>Hi ${toName},</p>
+<p><strong>${fromName}</strong> added a note to the request "${subject}":</p>
+<p style="background:#f5f5f5;padding:12px;border-radius:6px;">${noteBody}</p>
+<p><a href="${APP_URL}${linkUrl}">View and reply →</a></p>
+<p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`
+  );
 }
 
 export async function sendPasswordResetEmail(email: string, name: string, token: string) {

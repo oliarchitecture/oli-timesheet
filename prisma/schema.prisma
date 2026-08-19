@@ -33,6 +33,9 @@ model Employee {
   reportPeriods       ReportPeriod[]
   reportPeriodReviews ReportPeriod[]   @relation("PeriodReviewer")
   passwordResetTokens PasswordResetToken[]
+  generalRequests       GeneralRequest[]
+  generalRequestReviews GeneralRequest[] @relation("GeneralRequestReviewer")
+  requestNotes          RequestNote[]
 }
 
 model PasswordResetToken {
@@ -259,4 +262,40 @@ enum ExpenseCategory {
   MEALS_CHINA
   ACCOMMODATION
   OTHER
+}
+
+model GeneralRequest {
+  id            String               @id @default(cuid())
+  employeeId    String
+  subject       String
+  note          String
+  status        GeneralRequestStatus @default(PENDING)
+  reviewedById  String?
+  reviewComment String?
+  createdAt     DateTime             @default(now())
+  reviewedAt    DateTime?
+  notesClosed   Boolean              @default(false)
+
+  employee Employee      @relation(fields: [employeeId], references: [id])
+  reviewer Employee?     @relation("GeneralRequestReviewer", fields: [reviewedById], references: [id])
+  notes    RequestNote[]
+}
+
+enum GeneralRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model RequestNote {
+  id               String   @id @default(cuid())
+  generalRequestId String
+  authorId         String
+  body             String
+  createdAt        DateTime @default(now())
+
+  generalRequest GeneralRequest @relation(fields: [generalRequestId], references: [id], onDelete: Cascade)
+  author         Employee       @relation(fields: [authorId], references: [id])
+
+  @@index([generalRequestId])
 }
