@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, CalendarDays } from "lucide-react";
+import { Plus, CalendarDays, Printer } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { DeletePTOButton } from "@/components/leave/DeletePTOButton";
 
@@ -127,6 +127,12 @@ export default async function PTOPage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/print/leave/${lr.id}`} target="_blank">
+                          <Printer className="h-3.5 w-3.5" />
+                          Print
+                        </Link>
+                      </Button>
                       {lr.status === "PENDING" && <DeletePTOButton requestId={lr.id} />}
                       {lr.status === "REVISION_REQUESTED" && (
                         <Button variant="outline" size="sm" asChild>

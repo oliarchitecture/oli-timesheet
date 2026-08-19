@@ -121,6 +121,7 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [restored, setRestored] = useState(false);
+  const [submittedId, setSubmittedId] = useState<string | null>(null);
 
   // Restore draft from localStorage on mount (create mode only)
   useEffect(() => {
@@ -187,15 +188,15 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
           days: days.map((d) => ({ date: d.date, type: d.type, halfDay: d.halfDay, reason: d.reason || null })),
         }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         throw new Error(data.error ?? "Failed to submit");
       }
       if (mode === "create") {
         try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       }
-      router.push("/leave");
       router.refresh();
+      setSubmittedId(data.id as string);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -366,6 +367,28 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
           </AlertDialogContent>
         </AlertDialog>
       </div>
+
+      <AlertDialog open={submittedId !== null}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Request submitted</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your PTO request has been sent to your admin for review. Please print a copy to provide to your admin.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => router.push("/leave")}>Skip</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                window.open(`/print/leave/${submittedId}`, "_blank");
+                router.push("/leave");
+              }}
+            >
+              Print
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
