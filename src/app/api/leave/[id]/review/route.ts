@@ -76,7 +76,9 @@ export async function POST(
       });
     }
 
-    // Pre-fill any existing DRAFT timesheet weeks that overlap the approved leave days
+    // Pre-fill timesheet weeks that overlap the approved leave days — creating the
+    // week (as DRAFT) if it doesn't exist yet, but never touching weeks that have
+    // already been submitted/approved.
     const officeAdminProject = await db.project.findFirst({
       where: { name: "001_Office Admin" },
     });
@@ -84,15 +86,20 @@ export async function POST(
     if (officeAdminProject) {
       for (const day of request.days) {
         const weekStart = getWeekStart(new Date(day.date));
-        const week = await db.timesheetWeek.findUnique({
+        const week = await db.timesheetWeek.upsert({
           where: {
             employeeId_weekStartDate: {
               employeeId: request.employeeId,
               weekStartDate: weekStart,
             },
           },
+          update: {},
+          create: {
+            employeeId: request.employeeId,
+            weekStartDate: weekStart,
+          },
         });
-        if (!week || week.status !== "DRAFT") continue;
+        if (week.status !== "DRAFT") continue;
 
         await db.timesheetEntry.upsert({
           where: {
