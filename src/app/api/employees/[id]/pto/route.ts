@@ -11,15 +11,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const { year, balances } = await req.json() as {
     year: number;
-    balances: { type: string; totalDays: number }[];
+    balances: { type: string; totalDays: number; usedDays: number }[];
   };
 
   const results = await Promise.all(
     balances.map((b) =>
       db.leaveBalance.upsert({
-        where: { employeeId_year_type: { employeeId: id, year, type: b.type as "VACATION" | "SICK" | "PERSONAL" | "OTHER" } },
-        update: { totalDays: b.totalDays },
-        create: { employeeId: id, year, type: b.type as "VACATION" | "SICK" | "PERSONAL" | "OTHER", totalDays: b.totalDays },
+        where: { employeeId_year_type: { employeeId: id, year, type: b.type as "VACATION" | "SICK" | "PERSONAL" | "OTHER" | "COMP_DAY" } },
+        update: { totalDays: b.totalDays, usedDays: b.usedDays },
+        create: { employeeId: id, year, type: b.type as "VACATION" | "SICK" | "PERSONAL" | "OTHER" | "COMP_DAY", totalDays: b.totalDays, usedDays: b.usedDays },
       })
     )
   );

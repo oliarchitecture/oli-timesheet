@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
 
 const LEAVE_TYPES = [
-  { type: "VACATION", label: "Vacation" },
-  { type: "SICK", label: "Sick" },
-  { type: "PERSONAL", label: "Personal / Non-Paid Time" },
-  { type: "COMP_DAY", label: "Comp Day" },
-  { type: "OTHER", label: "Other" },
+  { type: "VACATION", label: "Vacation", hasTotal: true },
+  { type: "SICK", label: "Sick", hasTotal: true },
+  { type: "COMP_DAY", label: "Comp Day", hasTotal: true },
+  { type: "PERSONAL", label: "Personal / Non-Paid Time", hasTotal: false },
+  { type: "OTHER", label: "Other", hasTotal: false },
 ];
 
 interface LeaveBalance {
@@ -36,11 +36,20 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
 
   const year = new Date().getFullYear();
 
-  const [days, setDays] = useState<Record<string, number>>(() => {
+  const [totals, setTotals] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
     for (const lt of LEAVE_TYPES) {
       const existing = balances.find((b) => b.type === lt.type);
       initial[lt.type] = existing?.totalDays ?? 0;
+    }
+    return initial;
+  });
+
+  const [used, setUsed] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    for (const lt of LEAVE_TYPES) {
+      const existing = balances.find((b) => b.type === lt.type);
+      initial[lt.type] = existing?.usedDays ?? 0;
     }
     return initial;
   });
@@ -80,7 +89,11 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           year,
-          balances: LEAVE_TYPES.map((lt) => ({ type: lt.type, totalDays: days[lt.type] })),
+          balances: LEAVE_TYPES.map((lt) => ({
+            type: lt.type,
+            totalDays: lt.hasTotal ? totals[lt.type] : 0,
+            usedDays: used[lt.type],
+          })),
         }),
       });
 
@@ -101,32 +114,41 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
   return (
     <form onSubmit={handleSave} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        {LEAVE_TYPES.map((lt) => {
-          const existing = balances.find((b) => b.type === lt.type);
-          return (
-            <div key={lt.type} className="space-y-1.5">
-              <Label htmlFor={`pto-${lt.type}`}>
-                {lt.label}
-                {existing && existing.usedDays > 0 && (
-                  <span className="ml-2 text-xs text-neutral-400 font-normal">({existing.usedDays} used)</span>
-                )}
-              </Label>
-              <div className="flex items-center gap-2">
+        {LEAVE_TYPES.map((lt) => (
+          <div key={lt.type} className="space-y-1.5">
+            <Label>{lt.label}</Label>
+            <div className="flex items-center gap-3">
+              {lt.hasTotal && (
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    id={`pto-total-${lt.type}`}
+                    type="number"
+                    min="0"
+                    max="365"
+                    step="0.5"
+                    value={totals[lt.type]}
+                    onChange={(e) => setTotals((prev) => ({ ...prev, [lt.type]: parseFloat(e.target.value) || 0 }))}
+                    className="w-20"
+                  />
+                  <span className="text-xs text-neutral-500">total</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1.5">
                 <Input
-                  id={`pto-${lt.type}`}
+                  id={`pto-used-${lt.type}`}
                   type="number"
                   min="0"
                   max="365"
                   step="0.5"
-                  value={days[lt.type]}
-                  onChange={(e) => setDays((prev) => ({ ...prev, [lt.type]: parseFloat(e.target.value) || 0 }))}
-                  className="w-24"
+                  value={used[lt.type]}
+                  onChange={(e) => setUsed((prev) => ({ ...prev, [lt.type]: parseFloat(e.target.value) || 0 }))}
+                  className="w-20"
                 />
-                <span className="text-sm text-neutral-500">days</span>
+                <span className="text-xs text-neutral-500">used</span>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
