@@ -31,9 +31,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Install PostgreSQL 17 client
-        # The runner ships pg_dump 16; the server is 17.6 and pg_dump refuses
-        # to dump from a newer server, so pull the matching major version.
+        # The server is 17.6 and pg_dump refuses to dump from a newer server,
+        # so the matching major version has to come from the pgdg repo.
         run: |
+          set -euo pipefail
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail \
             https://www.postgresql.org/media/keys/ACCC4CF8.asc
@@ -41,7 +42,21 @@ jobs:
             | sudo tee /etc/apt/sources.list.d/pgdg.list
           sudo apt-get update
           sudo apt-get install -y postgresql-client-17
+          # Installing is not enough. The runner ships its own PostgreSQL 16
+          # binaries earlier on PATH, which shadow the ones just installed, so
+          # point later steps at the versioned 17 directory explicitly.
+          echo "/usr/lib/postgresql/17/bin" >> "$GITHUB_PATH"
+
+      - name: Verify client version is 17
+        # Assert, don't just print. Merely printing the version is what let the
+        # first attempt sail past a v16 client and fail in the dump step with a
+        # confusing "server version mismatch" instead of failing here.
+        run: |
+          set -euo pipefail
           pg_dump --version
+          psql --version
+          pg_dump --version | grep -qE ' 17\.' || { echo "::error::pg_dump is not version 17"; exit 1; }
+          psql --version    | grep -qE ' 17\.' || { echo "::error::psql is not version 17"; exit 1; }
 
       - name: Dump database
         env:
