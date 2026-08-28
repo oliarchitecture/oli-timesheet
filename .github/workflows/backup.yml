@@ -90,11 +90,17 @@ jobs:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: |
           set -euo pipefail
+          # Exact count(*) per table, NOT pg_stat_user_tables.n_live_tup: that is
+          # a stale planner estimate which reported Project as 1 row when the
+          # table holds 45, and would mislead anyone verifying a restore.
           psql "$SUPABASE_DB_URL" -At -F',' -c "
-            select relname, n_live_tup
-            from pg_stat_user_tables
-            where schemaname = 'public'
-            order by relname
+            select table_name,
+                   (xpath('/row/cnt/text()',
+                          query_to_xml(format('select count(*) as cnt from %I.%I', table_schema, table_name),
+                                       false, true, '')))[1]::text::bigint as exact_rows
+            from information_schema.tables
+            where table_schema = 'public' and table_type = 'BASE TABLE'
+            order by table_name
           " > backup/row-counts.csv
           cat backup/row-counts.csv
 
