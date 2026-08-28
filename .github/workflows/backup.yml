@@ -1,0 +1,119 @@
+name: Backup Supabase
+
+# Supabase's Free plan has no automatic backups and no PITR, so this is the
+# only copy of the production data outside Supabase itself.
+#
+# Running every 3 days also generates database activity, which acts as a
+# backstop against the 7-day inactivity pause. It is only a backstop: GitHub
+# disables scheduled workflows after 60 days without repo activity, so the
+# daily Vercel cron at /api/cron/keepalive remains the primary protection.
+
+on:
+  schedule:
+    - cron: "0 5 */3 * *"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Public value - this is NEXT_PUBLIC_SUPABASE_URL, already shipped in the client bundle.
+  SUPABASE_URL: https://qrrzcwutprywgxlzogaa.supabase.co
+  BUCKET: expense-receipts
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Install PostgreSQL 17 client
+        # The runner ships pg_dump 16; the server is 17.6 and pg_dump refuses
+        # to dump from a newer server, so pull the matching major version.
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc --fail \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          pg_dump --version
+
+      - name: Dump database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup/storage
+          STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # Only the public schema: Supabase's internal auth/storage/realtime
+          # schemas are theirs, unused by this app, and error on permissions.
+          pg_dump --format=custom --no-owner --no-acl --schema=public \
+            --file="backup/db-${STAMP}.dump" "$SUPABASE_DB_URL"
+          ls -lh "backup/db-${STAMP}.dump"
+
+      - name: Verify dump is restorable
+        run: |
+          set -euo pipefail
+          # A dump that cannot be listed is not a backup. Fail loudly here
+          # rather than discovering it during an actual recovery.
+          pg_restore --list "backup/db-${STAMP}.dump" > backup/dump-contents.txt
+          TABLES=$(grep -c "TABLE DATA" backup/dump-contents.txt || true)
+          echo "Tables with data in dump: $TABLES"
+          if [ "$TABLES" -lt 10 ]; then
+            echo "::error::Dump contains only $TABLES tables with data; expected at least 10."
+            exit 1
+          fi
+
+      - name: Record row counts
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -At -F',' -c "
+            select relname, n_live_tup
+            from pg_stat_user_tables
+            where schemaname = 'public'
+            order by relname
+          " > backup/row-counts.csv
+          cat backup/row-counts.csv
+
+      - name: Mirror storage bucket
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -At -c "
+            select name from storage.objects
+            where bucket_id = '${BUCKET}' order by name
+          " > backup/object-list.txt
+          COUNT=$(wc -l < backup/object-list.txt)
+          echo "Objects to mirror: $COUNT"
+          while IFS= read -r obj; do
+            [ -z "$obj" ] && continue
+            mkdir -p "backup/storage/$(dirname "$obj")"
+            curl -sSfL -H "Authorization: Bearer ${SERVICE_KEY}" \
+              "${SUPABASE_URL}/storage/v1/object/${BUCKET}/${obj}" \
+              -o "backup/storage/${obj}"
+          done < backup/object-list.txt
+          DOWNLOADED=$(find backup/storage -type f | wc -l)
+          echo "Objects downloaded: $DOWNLOADED"
+          if [ "$DOWNLOADED" -ne "$COUNT" ]; then
+            echo "::error::Expected $COUNT objects but downloaded $DOWNLOADED."
+            exit 1
+          fi
+          du -sh backup/storage
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ env.STAMP }}
+          path: backup/
+          retention-days: 90
+          if-no-files-found: error
