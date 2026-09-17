@@ -44,7 +44,7 @@ export async function POST(
     try {
       if (isOwner) {
         const admins = await db.employee.findMany({
-          where: { role: "ADMIN", isActive: true },
+          where: { role: "ADMIN", isActive: true, receivesNotifications: true },
           select: { name: true, email: true },
         });
         await Promise.all(

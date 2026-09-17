@@ -19,6 +19,9 @@ model Employee {
   startDate             DateTime?
   photoUrl              String?
   isActive              Boolean   @default(true)
+  // Admins only: whether this person is emailed when staff submit things. Lets a
+  // shared or unattended admin login exist without generating mail nobody reads.
+  receivesNotifications Boolean   @default(true)
   defaultPeriodStartDay Int?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt

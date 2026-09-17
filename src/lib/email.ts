@@ -78,7 +78,7 @@ export async function notifyAdminsOfSubmission(
 ) {
   try {
     const admins = await db.employee.findMany({
-      where: { role: "ADMIN", isActive: true },
+      where: { role: "ADMIN", isActive: true, receivesNotifications: true },
       select: { name: true, email: true },
     });
     await Promise.all(
