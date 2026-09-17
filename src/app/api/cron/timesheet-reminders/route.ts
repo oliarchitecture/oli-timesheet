@@ -6,6 +6,10 @@ import { sendTimesheetReminderEmail } from "@/lib/email";
  * GET /api/cron/timesheet-reminders
  * Triggered by Vercel Cron on the 13th of each month (see vercel.json).
  * Emails every active employee a reminder to submit their timesheet/expenses.
+ *
+ * Admins are excluded: they review submissions rather than file them, so a "please submit
+ * your timesheet" reminder is just noise in their inbox. They still receive the per-
+ * submission notifications sent by the submit routes.
  */
 export async function GET(req: Request) {
   const authHeader = req.headers.get("authorization");
@@ -14,7 +18,7 @@ export async function GET(req: Request) {
   }
 
   const employees = await db.employee.findMany({
-    where: { isActive: true },
+    where: { isActive: true, role: "EMPLOYEE" },
     select: { name: true, email: true },
   });
 

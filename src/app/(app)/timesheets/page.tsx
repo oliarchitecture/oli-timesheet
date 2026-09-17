@@ -7,13 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { NewPeriodButton } from "@/components/timesheet/NewPeriodButton";
 import { DeletePeriodButton } from "@/components/timesheet/DeletePeriodButton";
-
-const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
-  DRAFT: "secondary",
-  SUBMITTED: "warning",
-  APPROVED: "success",
-  REJECTED: "destructive",
-};
+import { statusLabel, statusVariant } from "@/lib/timesheet-status";
 
 export default async function TimesheetsPage() {
   const session = await auth();
@@ -70,7 +64,9 @@ export default async function TimesheetsPage() {
                         {period.submittedAt ? ` · Submitted ${formatDate(period.submittedAt)}` : ""}
                       </p>
                     </Link>
-                    <Badge variant={statusVariant[period.status] ?? "secondary"}>{period.status}</Badge>
+                    <Badge variant={statusVariant[period.status] ?? "secondary"}>
+                      {statusLabel[period.status] ?? period.status}
+                    </Badge>
                     {period.status === "DRAFT" && (
                       <DeletePeriodButton periodId={period.id} />
                     )}

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWeekStart } from "@/lib/utils";
@@ -126,16 +126,22 @@ export async function POST(
       }
     }
 
-    // Fire-and-forget: email the employee a calendar invite for their approved PTO
-    void sendPtoCalendarInvite({ ...updated, days: request.days }, request.employee);
+    // Email the employee a calendar invite for their approved PTO, after the response.
+    const invite = { ...updated, days: request.days };
+    const recipient = request.employee;
+    after(async () => {
+      await sendPtoCalendarInvite(invite, recipient);
+    });
   }
 
-  // Fire-and-forget: notify employee
+  // Runs after the response is sent, but still inside the function's lifetime.
   const decisionMap = { APPROVED: "approved", REJECTED: "rejected", REVISION_REQUESTED: "revision" } as const;
-  void notifyEmployeeDecision(
-    request.employee.email, request.employee.name, "pto",
-    decisionMap[status], comment, "/leave"
-  );
+  after(async () => {
+    await notifyEmployeeDecision(
+      request.employee.email, request.employee.name, "pto",
+      decisionMap[status], comment, "/leave"
+    );
+  });
 
   return NextResponse.json(updated);
 }

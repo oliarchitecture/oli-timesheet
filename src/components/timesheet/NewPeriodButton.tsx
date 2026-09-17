@@ -39,12 +39,16 @@ export function NewPeriodButton({ defaultPeriodStartDay }: NewPeriodButtonProps)
   const [endValue, setEndValue] = useState(computeEndDate(initialStart));
   const [rememberDefault, setRememberDefault] = useState(false);
   const [error, setError] = useState("");
+  // Set when the range collides with a timesheet that already exists, so we can offer to
+  // open it instead of leaving the employee to create a duplicate.
+  const [existingPeriodId, setExistingPeriodId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function handleStartChange(val: string) {
     setStartValue(val);
     if (val) setEndValue(computeEndDate(val));
     setError("");
+    setExistingPeriodId(null);
   }
 
   async function handleCreate() {
@@ -54,6 +58,7 @@ export function NewPeriodButton({ defaultPeriodStartDay }: NewPeriodButtonProps)
 
     setSubmitting(true);
     setError("");
+    setExistingPeriodId(null);
     try {
       if (rememberDefault) {
         const day = new Date(startValue + "T00:00:00Z").getUTCDate();
@@ -75,6 +80,7 @@ export function NewPeriodButton({ defaultPeriodStartDay }: NewPeriodButtonProps)
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
+        if (data.periodId) setExistingPeriodId(data.periodId as string);
         throw new Error(data.error ?? "Failed to create period");
       }
 
@@ -137,6 +143,19 @@ export function NewPeriodButton({ defaultPeriodStartDay }: NewPeriodButtonProps)
           </label>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
+
+          {existingPeriodId && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setOpen(false);
+                router.push(`/timesheets/period/${existingPeriodId}`);
+              }}
+            >
+              Open existing timesheet
+            </Button>
+          )}
 
           <Button className="w-full" onClick={handleCreate} disabled={submitting}>
             {submitting ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</> : "Create Timesheet"}

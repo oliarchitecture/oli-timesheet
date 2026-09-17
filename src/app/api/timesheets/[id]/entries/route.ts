@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { canEditTimesheet, effectiveStatus, statusLabel } from "@/lib/timesheet-status";
 
 // PUT /api/timesheets/[id]/entries - save timesheet entries
 export async function PUT(
@@ -11,15 +12,26 @@ export async function PUT(
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const timesheet = await db.timesheetWeek.findUnique({ where: { id } });
+  const timesheet = await db.timesheetWeek.findUnique({
+    where: { id },
+    include: { reportPeriod: { select: { status: true } } },
+  });
   if (!timesheet) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   if (timesheet.employeeId !== session.user.id && session.user.role !== "ADMIN") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (timesheet.status !== "DRAFT") {
-    return NextResponse.json({ error: "Cannot edit a submitted timesheet" }, { status: 400 });
+  // A week inside a period inherits the period's status — that is what an admin approves
+  // or returns for revision, so it decides whether the hours may still be edited.
+  const isAdmin = session.user.role === "ADMIN";
+  const periodStatus = timesheet.reportPeriod?.status ?? null;
+  if (!canEditTimesheet({ weekStatus: timesheet.status, periodStatus, isAdmin })) {
+    const status = effectiveStatus(timesheet.status, periodStatus);
+    return NextResponse.json(
+      { error: `This timesheet is locked (${statusLabel[status] ?? status}) and can't be edited.` },
+      { status: 400 }
+    );
   }
 
   const { entries } = await req.json() as {

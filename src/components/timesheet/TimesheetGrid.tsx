@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn, formatDateShort, getWeekDays, isSameDay } from "@/lib/utils";
 import { Save, Loader2, X, MessageSquare, ChevronUp, ChevronDown } from "lucide-react";
 import { getFederalHolidays, isSameUTCDay } from "@/lib/holidays";
+import { canEditTimesheet, type TimesheetStatus } from "@/lib/timesheet-status";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,13 @@ interface TimesheetGridProps {
   weekStart: Date;
   projects: Project[];
   entries: EntryData[];
-  status: "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
+  status: TimesheetStatus;
+  /**
+   * Locks the grid. Supplied by the parent, which knows the reporting period the week
+   * belongs to — the period is what an admin approves or returns, so it decides
+   * editability. Falls back to the week's own status for standalone weeks.
+   */
+  isReadOnly?: boolean;
   isAdmin?: boolean;
   lastSaved?: Date | null;
   showSubmit?: boolean;
@@ -240,6 +247,7 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
   projects,
   entries,
   status,
+  isReadOnly: isReadOnlyProp,
   isAdmin = false,
   lastSaved,
   showSubmit = true,
@@ -267,7 +275,7 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
   const activeRowsRef = useRef<ActiveRow[]>([]);
 
   const weekDays = getWeekDays(weekStart);
-  const isReadOnly = status === "SUBMITTED" || status === "APPROVED" || (isAdmin && status !== "DRAFT");
+  const isReadOnly = isReadOnlyProp ?? !canEditTimesheet({ weekStatus: status, isAdmin });
 
   function isBlocked(day: Date): boolean {
     if (periodStart && day.getTime() < periodStart.getTime()) return true;
@@ -448,7 +456,10 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ entries: entriesToSave }),
       });
-      if (!res.ok) throw new Error("Save failed");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Save failed");
+      }
       setSavedAt(new Date());
       setIsDirty(false);
       onSaved?.();
@@ -456,8 +467,8 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
       if (refresh) {
         startTransition(() => router.refresh());
       }
-    } catch {
-      setError("Failed to save. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save. Please try again.");
     } finally {
       setSaving(false);
       isSavingRef.current = false;

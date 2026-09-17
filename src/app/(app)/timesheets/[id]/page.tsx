@@ -9,13 +9,12 @@ import { formatDate, formatDateShort, getWeekDays } from "@/lib/utils";
 import { Calendar } from "lucide-react";
 import { BackButton } from "@/components/ui/back-button";
 import { DeleteTimesheetPageButton } from "@/components/timesheet/DeleteTimesheetPageButton";
-
-const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
-  DRAFT: "secondary",
-  SUBMITTED: "warning",
-  APPROVED: "success",
-  REJECTED: "destructive",
-};
+import {
+  canEditTimesheet,
+  statusLabel,
+  statusVariant,
+  type TimesheetStatus,
+} from "@/lib/timesheet-status";
 
 export default async function TimesheetPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,6 +26,7 @@ export default async function TimesheetPage({ params }: { params: Promise<{ id: 
     include: {
       employee: { select: { name: true, email: true } },
       reviewer: { select: { name: true } },
+      reportPeriod: { select: { status: true } },
       entries: {
         include: { project: { select: { name: true } } },
         orderBy: { date: "asc" },
@@ -85,7 +85,7 @@ export default async function TimesheetPage({ params }: { params: Promise<{ id: 
                 {timesheet.employee.name}
               </h2>
               <Badge variant={statusVariant[timesheet.status] ?? "secondary"}>
-                {timesheet.status}
+                {statusLabel[timesheet.status] ?? timesheet.status}
               </Badge>
             </div>
             <div className="flex items-center gap-1.5 text-sm text-neutral-500">
@@ -119,7 +119,14 @@ export default async function TimesheetPage({ params }: { params: Promise<{ id: 
               weekStart={timesheet.weekStartDate}
               projects={projects}
               entries={entryData}
-              status={timesheet.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED"}
+              status={timesheet.status as TimesheetStatus}
+              isReadOnly={
+                !canEditTimesheet({
+                  weekStatus: timesheet.status as TimesheetStatus,
+                  periodStatus: (timesheet.reportPeriod?.status ?? null) as TimesheetStatus | null,
+                  isAdmin: session.user.role === "ADMIN",
+                })
+              }
               isAdmin={session.user.role === "ADMIN"}
               lastSaved={timesheet.updatedAt}
             />

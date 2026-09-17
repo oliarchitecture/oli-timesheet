@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyEmployeeDecision } from "@/lib/email";
@@ -7,9 +7,9 @@ import { notifyEmployeeDecision } from "@/lib/email";
  * POST /api/report-periods/[id]/review
  * Admin-only. Approve, request revision, or reject a whole period.
  *
- * APPROVED          → period + all weeks → APPROVED
- * REVISION_REQUESTED → period → DRAFT, all SUBMITTED weeks → DRAFT (employee re-edits)
- * REJECTED          → period → REJECTED (final, no revert)
+ * APPROVED           → period + all weeks → APPROVED
+ * REVISION_REQUESTED → period → REVISION_REQUESTED, all weeks → DRAFT (employee re-edits)
+ * REJECTED           → period → REJECTED, all weeks → DRAFT (employee must still correct it)
  */
 export async function POST(
   req: Request,
@@ -50,9 +50,11 @@ export async function POST(
     ]);
   } else if (status === "REVISION_REQUESTED") {
     await db.$transaction([
-      // Revert all SUBMITTED weeks to DRAFT so employee can edit again
+      // Revert every week in the period to DRAFT so the employee can edit again.
+      // Filtering by status here would leave any week that drifted out of sync (e.g. one
+      // re-parented from an earlier period) locked while the period looks editable.
       db.timesheetWeek.updateMany({
-        where: { reportPeriodId: id, status: "SUBMITTED" },
+        where: { reportPeriodId: id },
         data: { status: "DRAFT", submittedAt: null },
       }),
       db.reportPeriod.update({
@@ -67,20 +69,37 @@ export async function POST(
       }),
     ]);
   } else if (status === "REJECTED") {
-    await db.reportPeriod.update({
-      where: { id },
-      data: { status: "REJECTED", reviewedById: reviewer, reviewedAt: now, reviewComment: comment ?? null },
-    });
+    // Unlock the weeks here too. There is no "discard" path for a timesheet — a rejected
+    // period still has to be corrected and sent back — and leaving the weeks locked left
+    // the employee with read-only hours and no way to act on the rejection.
+    await db.$transaction([
+      db.timesheetWeek.updateMany({
+        where: { reportPeriodId: id },
+        data: { status: "DRAFT", submittedAt: null },
+      }),
+      db.reportPeriod.update({
+        where: { id },
+        data: {
+          status: "REJECTED",
+          reviewedById: reviewer,
+          reviewedAt: now,
+          reviewComment: comment ?? null,
+          submittedAt: null,
+        },
+      }),
+    ]);
   } else {
     return NextResponse.json({ error: "Invalid status" }, { status: 400 });
   }
 
-  // Fire-and-forget: notify employee
+  // Runs after the response is sent, but still inside the function's lifetime.
   const decisionMap = { APPROVED: "approved", REJECTED: "rejected", REVISION_REQUESTED: "revision" } as const;
-  void notifyEmployeeDecision(
-    period.employee.email, period.employee.name, "timesheet",
-    decisionMap[status], comment, `/timesheets/period/${id}`
-  );
+  after(async () => {
+    await notifyEmployeeDecision(
+      period.employee.email, period.employee.name, "timesheet",
+      decisionMap[status], comment, `/timesheets/period/${id}`
+    );
+  });
 
   return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyEmployeeDecision } from "@/lib/email";
@@ -39,12 +39,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
   });
 
-  // Fire-and-forget: notify employee
+  // Runs after the response is sent, but still inside the function's lifetime.
   const decisionMap = { APPROVE: "approved", REJECT: "rejected", REVISION_REQUESTED: "revision" } as const;
-  void notifyEmployeeDecision(
-    report.employee.email, report.employee.name, "expense",
-    decisionMap[action as keyof typeof decisionMap], reviewComment, `/expenses/${id}`
-  );
+  after(async () => {
+    await notifyEmployeeDecision(
+      report.employee.email, report.employee.name, "expense",
+      decisionMap[action as keyof typeof decisionMap], reviewComment, `/expenses/${id}`
+    );
+  });
 
   return NextResponse.json(updated);
 }

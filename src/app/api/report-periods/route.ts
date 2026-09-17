@@ -30,6 +30,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "End date must be more than 7 days after start date" }, { status: 400 });
   }
 
+  // One period per range. Without this an employee who feels stuck on an existing period
+  // can create a duplicate covering the same dates, which then competes with it for the
+  // same week rows and leaves both looking broken.
+  const overlapping = await db.reportPeriod.findFirst({
+    where: {
+      employeeId: session.user.id,
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+    orderBy: { startDate: "asc" },
+  });
+  if (overlapping) {
+    return NextResponse.json(
+      {
+        error:
+          `You already have a timesheet for ${overlapping.startDate.toISOString().slice(0, 10)} – ` +
+          `${overlapping.endDate.toISOString().slice(0, 10)}. Open that one instead of creating a new one.`,
+        periodId: overlapping.id,
+      },
+      { status: 409 }
+    );
+  }
+
   // Compute all week-start dates (Sundays) that overlap the range
   const firstWeekStart = getWeekStart(start);
   const lastWeekStart = getWeekStart(end);
@@ -50,21 +73,38 @@ export async function POST(req: Request) {
     },
   });
 
-  // Upsert a TimesheetWeek for every week overlapping the range
+  // Attach a TimesheetWeek for every week overlapping the range.
+  //
+  // A week can only have one parent period, but weeks run Sun–Sat while periods are
+  // arbitrary ranges, so a boundary week can overlap two periods. If that week was already
+  // submitted or approved under the earlier period we leave it there — pulling it across
+  // would either reopen reviewed hours or (worse) drag its lock into this new period and
+  // leave the employee unable to edit. Anything still in progress moves over and is reset
+  // to DRAFT so it matches the period it now belongs to.
   for (const weekStart of weekStarts) {
-    await db.timesheetWeek.upsert({
+    const existing = await db.timesheetWeek.findUnique({
       where: {
-        employeeId_weekStartDate: {
+        employeeId_weekStartDate: { employeeId: session.user.id, weekStartDate: weekStart },
+      },
+      select: { id: true, status: true },
+    });
+
+    if (!existing) {
+      await db.timesheetWeek.create({
+        data: {
           employeeId: session.user.id,
           weekStartDate: weekStart,
+          reportPeriodId: newPeriod.id,
         },
-      },
-      update: { reportPeriodId: newPeriod.id },
-      create: {
-        employeeId: session.user.id,
-        weekStartDate: weekStart,
-        reportPeriodId: newPeriod.id,
-      },
+      });
+      continue;
+    }
+
+    if (existing.status === "SUBMITTED" || existing.status === "APPROVED") continue;
+
+    await db.timesheetWeek.update({
+      where: { id: existing.id },
+      data: { reportPeriodId: newPeriod.id, status: "DRAFT", submittedAt: null },
     });
   }
 

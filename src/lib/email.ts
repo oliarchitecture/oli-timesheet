@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { db } from "./db";
 
 let _resend: Resend | null = null;
 function getResend() {
@@ -61,6 +62,33 @@ export async function notifyAdminNewSubmission(
 <p><a href="${APP_URL}${linkUrl}">Review it here →</a></p>
 <p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`
   );
+}
+
+/**
+ * Email every active admin about a new submission.
+ *
+ * IMPORTANT: await this, or wrap the call in `after()` from "next/server". On Vercel the
+ * serverless function is frozen the moment the response is returned, so a promise left
+ * running in the background is silently dropped and the email is never sent.
+ */
+export async function notifyAdminsOfSubmission(
+  type: "timesheet" | "expense" | "pto" | "request",
+  employeeName: string,
+  linkUrl: string
+) {
+  try {
+    const admins = await db.employee.findMany({
+      where: { role: "ADMIN", isActive: true },
+      select: { name: true, email: true },
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        notifyAdminNewSubmission(admin.email, admin.name, type, employeeName, linkUrl)
+      )
+    );
+  } catch (err) {
+    console.error("[email] Failed to notify admins:", err);
+  }
 }
 
 export async function notifyEmployeeDecision(

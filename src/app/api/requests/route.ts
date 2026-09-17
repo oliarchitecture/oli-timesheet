@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { notifyAdminNewSubmission } from "@/lib/email";
+import { notifyAdminsOfSubmission } from "@/lib/email";
 
 // GET /api/requests - list requests for current user (or all for admin)
 export async function GET() {
@@ -38,13 +38,11 @@ export async function POST(req: Request) {
     },
   });
 
-  // Fire-and-forget: notify Hiroshi Okamoto specifically
-  db.employee.findUnique({ where: { email: "okamoto@oliarch.com" }, select: { name: true, email: true } })
-    .then((hiroshi) => {
-      if (!hiroshi) return;
-      void notifyAdminNewSubmission(hiroshi.email, hiroshi.name, "request", session.user.name ?? "An employee", `/admin/requests/${request.id}`);
-    })
-    .catch(() => {});
+  // Runs after the response is sent, but still inside the function's lifetime.
+  const employeeName = session.user.name ?? "An employee";
+  after(async () => {
+    await notifyAdminsOfSubmission("request", employeeName, `/admin/requests/${request.id}`);
+  });
 
   return NextResponse.json(request, { status: 201 });
 }

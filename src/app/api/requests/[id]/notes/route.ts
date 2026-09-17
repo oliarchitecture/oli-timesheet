@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyNewRequestNote } from "@/lib/email";
@@ -36,17 +36,31 @@ export async function POST(
     include: { author: { select: { name: true } } },
   });
 
-  // Fire-and-forget: notify the other side of the conversation
-  if (isOwner) {
-    db.employee.findUnique({ where: { email: "okamoto@oliarch.com" }, select: { name: true, email: true } })
-      .then((hiroshi) => {
-        if (!hiroshi) return;
-        void notifyNewRequestNote(hiroshi.email, hiroshi.name, note.author.name, request.subject, note.body, `/admin/requests/${id}`);
-      })
-      .catch(() => {});
-  } else {
-    void notifyNewRequestNote(request.employee.email, request.employee.name, note.author.name, request.subject, note.body, `/requests/${id}`);
-  }
+  // Notify the other side of the conversation after the response is sent. `after` keeps
+  // the serverless function alive for it; an un-awaited promise would be discarded.
+  const { name: authorName } = note.author;
+  const { subject, body: noteBody } = { subject: request.subject, body: note.body };
+  after(async () => {
+    try {
+      if (isOwner) {
+        const admins = await db.employee.findMany({
+          where: { role: "ADMIN", isActive: true },
+          select: { name: true, email: true },
+        });
+        await Promise.all(
+          admins.map((admin) =>
+            notifyNewRequestNote(admin.email, admin.name, authorName, subject, noteBody, `/admin/requests/${id}`)
+          )
+        );
+      } else {
+        await notifyNewRequestNote(
+          request.employee.email, request.employee.name, authorName, subject, noteBody, `/requests/${id}`
+        );
+      }
+    } catch (err) {
+      console.error("[email] Failed to notify about request note:", err);
+    }
+  });
 
   return NextResponse.json(note, { status: 201 });
 }

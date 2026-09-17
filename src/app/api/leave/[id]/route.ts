@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { notifyAdminNewSubmission } from "@/lib/email";
+import { notifyAdminsOfSubmission } from "@/lib/email";
 
 const VALID_TYPES = ["VACATION", "SICK", "PERSONAL", "OTHER", "COMP_DAY"] as const;
 type ValidLeaveType = typeof VALID_TYPES[number];
@@ -65,14 +65,11 @@ export async function PUT(
     });
   });
 
-  // Fire-and-forget: notify admins of resubmission
-  db.employee.findMany({ where: { role: "ADMIN", isActive: true }, select: { name: true, email: true } })
-    .then((admins) => {
-      for (const admin of admins) {
-        void notifyAdminNewSubmission(admin.email, admin.name, "pto", session.user.name ?? "An employee", `/admin/leave/${id}`);
-      }
-    })
-    .catch(() => {});
+  // Runs after the response is sent, but still inside the function's lifetime.
+  const employeeName = session.user.name ?? "An employee";
+  after(async () => {
+    await notifyAdminsOfSubmission("pto", employeeName, `/admin/leave/${id}`);
+  });
 
   return NextResponse.json(updated);
 }

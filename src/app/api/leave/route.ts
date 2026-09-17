@@ -1,7 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { notifyAdminNewSubmission } from "@/lib/email";
+import { notifyAdminsOfSubmission } from "@/lib/email";
 
 export async function GET() {
   const session = await auth();
@@ -66,14 +66,11 @@ export async function POST(req: Request) {
     return parent;
   });
 
-  // Fire-and-forget: notify all admins
-  db.employee.findMany({ where: { role: "ADMIN", isActive: true }, select: { name: true, email: true } })
-    .then((admins) => {
-      for (const admin of admins) {
-        void notifyAdminNewSubmission(admin.email, admin.name, "pto", session.user.name ?? "An employee", `/admin/leave/${request.id}`);
-      }
-    })
-    .catch(() => {});
+  // Runs after the response is sent, but still inside the function's lifetime.
+  const employeeName = session.user.name ?? "An employee";
+  after(async () => {
+    await notifyAdminsOfSubmission("pto", employeeName, `/admin/leave/${request.id}`);
+  });
 
   return NextResponse.json(request, { status: 201 });
 }

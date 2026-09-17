@@ -16,8 +16,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { cn, formatDateShort, getWeekDays } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Send, Loader2 } from "lucide-react";
+import { cn, formatDateShort, getWeekDays, getWeekStart } from "@/lib/utils";
+import { canEditTimesheet, canSubmitTimesheet, statusLabel, statusVariant } from "@/lib/timesheet-status";
+import { ChevronLeft, ChevronRight, Send, Loader2, Info } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,26 +56,31 @@ interface PeriodViewProps {
   rowOrder?: Array<{ projectId: string; phase: string }> | null;
 }
 
-const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
-  DRAFT: "secondary",
-  SUBMITTED: "warning",
-  APPROVED: "success",
-  REJECTED: "destructive",
-  REVISION_REQUESTED: "warning",
-};
-
-const statusLabel: Record<string, string> = {
-  DRAFT: "DRAFT",
-  SUBMITTED: "SUBMITTED",
-  APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
-  REVISION_REQUESTED: "Revision Requested",
-};
-
 function formatWeekLabel(weekStartDate: string): string {
   const start = new Date(weekStartDate);
   const end = getWeekDays(start)[6];
   return `${formatDateShort(start)} – ${formatDateShort(end)}`;
+}
+
+/**
+ * Weeks that overlap this period's range but are not part of it — they belong to an
+ * earlier period that was already submitted or approved, so they were left there
+ * rather than being pulled across (a week can only have one parent period).
+ */
+function findMissingWeekStarts(startDate: string, endDate: string, weeks: WeekData[]): Date[] {
+  const present = new Set(
+    weeks.map((w) => new Date(w.weekStartDate).toISOString().slice(0, 10))
+  );
+  const last = getWeekStart(new Date(endDate));
+  const missing: Date[] = [];
+  for (
+    const cur = getWeekStart(new Date(startDate));
+    cur <= last;
+    cur.setUTCDate(cur.getUTCDate() + 7)
+  ) {
+    if (!present.has(cur.toISOString().slice(0, 10))) missing.push(new Date(cur));
+  }
+  return missing;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -112,8 +118,19 @@ export function PeriodView({
   today.setUTCHours(0, 0, 0, 0);
   const periodEndDate = new Date(endDate);
   periodEndDate.setUTCHours(0, 0, 0, 0);
-  const canSubmitNow = (status === "DRAFT" || status === "REVISION_REQUESTED") && !isAdmin && periodEndDate <= today;
-  const isResubmit = status === "REVISION_REQUESTED";
+  const showSubmitButton = canSubmitTimesheet(status) && !isAdmin;
+  const canSubmitNow = showSubmitButton && periodEndDate <= today;
+  const isResubmit = status === "REVISION_REQUESTED" || status === "REJECTED";
+
+  // Editability follows the period, not the individual week — a week row can lag behind
+  // (e.g. it was re-parented from an earlier period) and must not lock the whole grid.
+  const isGridReadOnly = !canEditTimesheet({
+    weekStatus: selectedWeek?.status ?? "DRAFT",
+    periodStatus: status,
+    isAdmin,
+  });
+
+  const missingWeekStarts = findMissingWeekStarts(startDate, endDate, weeks);
 
   if (!selectedWeek) {
     return <p className="text-sm text-neutral-500 py-8 text-center">No weeks found for this timesheet.</p>;
@@ -172,7 +189,7 @@ export function PeriodView({
             <p className="text-sm text-neutral-500">{weeks.length} week{weeks.length !== 1 ? "s" : ""}</p>
           </div>
 
-          {(status === "DRAFT" || status === "REVISION_REQUESTED") && !isAdmin && (
+          {showSubmitButton && (
             <div className="flex flex-col items-end gap-1">
               {canSubmitNow ? (
                 <AlertDialog>
@@ -218,6 +235,21 @@ export function PeriodView({
             </div>
           )}
         </div>
+
+        {missingWeekStarts.length > 0 && (
+          <div className="mt-3 flex gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-neutral-400" />
+            <p>
+              {missingWeekStarts.length === 1 ? "The week of " : "The weeks of "}
+              <span className="font-medium">
+                {missingWeekStarts.map((d) => formatDateShort(d)).join(", ")}
+              </span>{" "}
+              {missingWeekStarts.length === 1 ? "is" : "are"} part of an earlier timesheet that
+              was already submitted, so {missingWeekStarts.length === 1 ? "it is" : "they are"} not
+              included here.
+            </p>
+          </div>
+        )}
 
         {(status === "REVISION_REQUESTED" || status === "REJECTED") && reviewComment && (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -283,6 +315,7 @@ export function PeriodView({
           projects={projects}
           entries={weekEntriesCache[selectedWeek.id] ?? selectedWeek.entries}
           status={selectedWeek.status}
+          isReadOnly={isGridReadOnly}
           onEntriesSaved={(saved) =>
             setWeekEntriesCache((prev) => ({ ...prev, [selectedWeek.id]: saved }))
           }

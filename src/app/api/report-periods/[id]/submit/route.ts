@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { notifyAdminNewSubmission } from "@/lib/email";
+import { notifyAdminsOfSubmission } from "@/lib/email";
+import { canSubmitTimesheet, type TimesheetStatus } from "@/lib/timesheet-status";
 
 // POST /api/report-periods/[id]/submit - submit all weeks in the period
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -18,16 +19,17 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (period.employeeId !== session.user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  if (period.status !== "DRAFT" && period.status !== "REVISION_REQUESTED") {
+  if (!canSubmitTimesheet(period.status as TimesheetStatus)) {
     return NextResponse.json({ error: "Period is not in a submittable status" }, { status: 400 });
   }
 
   const now = new Date();
 
   await db.$transaction(async (tx) => {
-    // Submit all DRAFT weeks
+    // Submit every week in the period. Filtering by status would silently skip weeks
+    // whose status drifted, leaving the period SUBMITTED with locked weeks inside it.
     await tx.timesheetWeek.updateMany({
-      where: { reportPeriodId: id, status: "DRAFT" },
+      where: { reportPeriodId: id },
       data: { status: "SUBMITTED", submittedAt: now },
     });
 
@@ -48,15 +50,12 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     },
   });
 
-  // Fire-and-forget: notify all admins
+  // Notify admins after the response is sent. `after` keeps the serverless function alive
+  // for this work; a bare un-awaited promise is discarded when the response returns.
   const employeeName = period.employee.name;
-  db.employee.findMany({ where: { role: "ADMIN", isActive: true }, select: { name: true, email: true } })
-    .then((admins) => {
-      for (const admin of admins) {
-        void notifyAdminNewSubmission(admin.email, admin.name, "timesheet", employeeName, `/admin/report-periods/${id}`);
-      }
-    })
-    .catch(() => {});
+  after(async () => {
+    await notifyAdminsOfSubmission("timesheet", employeeName, `/admin/report-periods/${id}`);
+  });
 
   return NextResponse.json(updated);
 }

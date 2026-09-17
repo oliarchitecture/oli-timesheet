@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { StatusProgress } from "@/components/timesheet/StatusProgress";
 import { TimesheetGrid } from "@/components/timesheet/TimesheetGrid";
+import { canEditTimesheet, type TimesheetStatus } from "@/lib/timesheet-status";
 import { ReviewActions } from "@/components/timesheet/ReviewActions";
 import { AdminDeleteTimesheetButton } from "@/components/timesheet/AdminDeleteTimesheetButton";
 import { formatDate, getWeekDays } from "@/lib/utils";
@@ -29,6 +30,7 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
     include: {
       employee: { select: { name: true, email: true, title: true } },
       reviewer: { select: { name: true } },
+      reportPeriod: { select: { status: true } },
       entries: {
         include: { project: { select: { name: true } } },
         orderBy: { date: "asc" },
@@ -133,7 +135,14 @@ export default async function AdminTimesheetReviewPage({ params }: { params: Pro
               weekStart={timesheet.weekStartDate}
               projects={projects}
               entries={entryData}
-              status={timesheet.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED"}
+              status={timesheet.status as TimesheetStatus}
+              isReadOnly={
+                !canEditTimesheet({
+                  weekStatus: timesheet.status as TimesheetStatus,
+                  periodStatus: (timesheet.reportPeriod?.status ?? null) as TimesheetStatus | null,
+                  isAdmin: true,
+                })
+              }
               isAdmin={true}
               lastSaved={timesheet.updatedAt}
             />
