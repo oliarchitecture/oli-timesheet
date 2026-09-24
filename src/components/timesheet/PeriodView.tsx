@@ -16,8 +16,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { cn, formatDateShort, getWeekDays, getWeekStart } from "@/lib/utils";
+import { cn, formatDateShort, getWeekDays } from "@/lib/utils";
 import { canEditTimesheet, canSubmitTimesheet, statusLabel, statusVariant } from "@/lib/timesheet-status";
+import { lockedDaysForWeek, type PeriodRange } from "@/lib/period-weeks";
 import { ChevronLeft, ChevronRight, Send, Loader2, Info } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -35,12 +36,21 @@ interface EntryData {
 
 type PeriodStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED";
 
+/** The period a week is attached to — null for weeks not yet claimed by one. */
+interface WeekOwner {
+  id: string;
+  status: PeriodStatus;
+  startDate: string;
+  endDate: string;
+}
+
 interface WeekData {
   id: string;
   weekStartDate: string;
   status: PeriodStatus;
   updatedAt: string;
   entries: EntryData[];
+  owner: WeekOwner | null;
 }
 
 interface PeriodViewProps {
@@ -62,25 +72,35 @@ function formatWeekLabel(weekStartDate: string): string {
   return `${formatDateShort(start)} – ${formatDateShort(end)}`;
 }
 
-/**
- * Weeks that overlap this period's range but are not part of it — they belong to an
- * earlier period that was already submitted or approved, so they were left there
- * rather than being pulled across (a week can only have one parent period).
- */
-function findMissingWeekStarts(startDate: string, endDate: string, weeks: WeekData[]): Date[] {
-  const present = new Set(
-    weeks.map((w) => new Date(w.weekStartDate).toISOString().slice(0, 10))
-  );
-  const last = getWeekStart(new Date(endDate));
-  const missing: Date[] = [];
-  for (
-    const cur = getWeekStart(new Date(startDate));
-    cur <= last;
-    cur.setUTCDate(cur.getUTCDate() + 7)
-  ) {
-    if (!present.has(cur.toISOString().slice(0, 10))) missing.push(new Date(cur));
+function periodLabel(startDate: string, endDate: string): string {
+  return `${formatDateShort(new Date(startDate))} – ${formatDateShort(new Date(endDate))}`;
+}
+
+/** Days of this week that fall outside the dates the employee picked for this period. */
+function lockedDaysFor(week: WeekData, viewing: PeriodRange): Record<string, string> {
+  // A week spans at most two periods — the one it is attached to and the one viewing it.
+  const neighbours: PeriodRange[] = [];
+  if (week.owner && week.owner.id !== viewing.id) {
+    neighbours.push({
+      id: week.owner.id,
+      status: week.owner.status,
+      startDate: new Date(week.owner.startDate),
+      endDate: new Date(week.owner.endDate),
+    });
   }
-  return missing;
+
+  const locked = lockedDaysForWeek({
+    weekStart: new Date(week.weekStartDate),
+    viewing,
+    neighbours,
+  });
+
+  return Object.fromEntries(
+    [...locked].map(([key, owner]) => [
+      key,
+      owner ? periodLabel(owner.startDate.toISOString(), owner.endDate.toISOString()) : "another timesheet",
+    ])
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -130,7 +150,17 @@ export function PeriodView({
     isAdmin,
   });
 
-  const missingWeekStarts = findMissingWeekStarts(startDate, endDate, weeks);
+  const viewingPeriod: PeriodRange = {
+    id: periodId,
+    status,
+    startDate: new Date(startDate),
+    endDate: new Date(endDate),
+  };
+
+  // A boundary week is attached to whichever period claimed it first; the other one borrows
+  // it so the days in it are never stranded between two timesheets.
+  const isShared = !!selectedWeek?.owner && selectedWeek.owner.id !== periodId;
+  const lockedDays = selectedWeek ? lockedDaysFor(selectedWeek, viewingPeriod) : {};
 
   if (!selectedWeek) {
     return <p className="text-sm text-neutral-500 py-8 text-center">No weeks found for this timesheet.</p>;
@@ -236,21 +266,6 @@ export function PeriodView({
           )}
         </div>
 
-        {missingWeekStarts.length > 0 && (
-          <div className="mt-3 flex gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
-            <Info className="h-4 w-4 shrink-0 mt-0.5 text-neutral-400" />
-            <p>
-              {missingWeekStarts.length === 1 ? "The week of " : "The weeks of "}
-              <span className="font-medium">
-                {missingWeekStarts.map((d) => formatDateShort(d)).join(", ")}
-              </span>{" "}
-              {missingWeekStarts.length === 1 ? "is" : "are"} part of an earlier timesheet that
-              was already submitted, so {missingWeekStarts.length === 1 ? "it is" : "they are"} not
-              included here.
-            </p>
-          </div>
-        )}
-
         {(status === "REVISION_REQUESTED" || status === "REJECTED") && reviewComment && (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <span className="font-medium">
@@ -277,11 +292,17 @@ export function PeriodView({
             <button
               key={week.id}
               onClick={() => switchWeek(i)}
+              title={
+                week.owner && week.owner.id !== periodId
+                  ? `Shared with your ${periodLabel(week.owner.startDate, week.owner.endDate)} timesheet`
+                  : undefined
+              }
               className={cn(
                 "px-3 py-1.5 rounded text-sm font-medium whitespace-nowrap transition-colors shrink-0",
                 i === selectedIndex
                   ? "bg-primary-500 text-white"
-                  : "text-neutral-600 hover:bg-neutral-100"
+                  : "text-neutral-600 hover:bg-neutral-100",
+                week.owner && week.owner.id !== periodId && "italic"
               )}
             >
               {formatWeekLabel(week.weekStartDate)}
@@ -306,6 +327,21 @@ export function PeriodView({
           </button>
         </div>
 
+        {isShared && selectedWeek.owner && (
+          <div className="flex gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-600">
+            <Info className="h-4 w-4 shrink-0 mt-0.5 text-neutral-400" />
+            <p>
+              This week is split with your{" "}
+              <span className="font-medium">
+                {periodLabel(selectedWeek.owner.startDate, selectedWeek.owner.endDate)}
+              </span>{" "}
+              timesheet ({statusLabel[selectedWeek.owner.status] ?? selectedWeek.owner.status}).
+              Only the days inside {periodLabel(startDate, endDate)} can be edited here — the
+              rest are shown for context and belong to that timesheet.
+            </p>
+          </div>
+        )}
+
         {/* Grid for selected week */}
         <TimesheetGrid
           ref={gridRef}
@@ -322,8 +358,8 @@ export function PeriodView({
           isAdmin={isAdmin}
           lastSaved={selectedWeek.updatedAt ? new Date(selectedWeek.updatedAt) : null}
           showSubmit={false}
-          periodStart={new Date(startDate)}
-          periodEnd={new Date(endDate)}
+          periodId={periodId}
+          lockedDays={lockedDays}
           officeAdminProjectId={officeAdminProjectId}
           rowOrder={rowOrder}
           templateRows={

@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { BackButton } from "@/components/ui/back-button";
 import { PeriodView } from "@/components/timesheet/PeriodView";
 import { DeletePeriodButton } from "@/components/timesheet/DeletePeriodButton";
+import { loadPeriodWeeks, toWeekData } from "@/lib/period-weeks.server";
 
 export default async function PeriodPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,13 +13,7 @@ export default async function PeriodPage({ params }: { params: Promise<{ id: str
 
   const period = await db.reportPeriod.findUnique({
     where: { id },
-    include: {
-      employee: { select: { name: true } },
-      weeks: {
-        include: { entries: { orderBy: { date: "asc" } } },
-        orderBy: { weekStartDate: "asc" },
-      },
-    },
+    include: { employee: { select: { name: true } } },
   });
 
   if (!period) notFound();
@@ -26,28 +21,15 @@ export default async function PeriodPage({ params }: { params: Promise<{ id: str
     redirect("/dashboard");
   }
 
-  const projects = await db.project.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: { name: "asc" },
-  });
+  const [projects, weeks] = await Promise.all([
+    db.project.findMany({ where: { status: "ACTIVE" }, orderBy: { name: "asc" } }),
+    loadPeriodWeeks(period.employeeId, period),
+  ]);
 
   const officeAdminProject = projects.find((p) => p.name === "001_Office Admin");
   const rowOrderData = period.rowOrder as Array<{ projectId: string; phase: string }> | null;
 
-  const weeksData = period.weeks.map((w) => ({
-    id: w.id,
-    weekStartDate: w.weekStartDate.toISOString(),
-    status: w.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED",
-    updatedAt: w.updatedAt.toISOString(),
-    entries: w.entries.map((e) => ({
-      projectId: e.projectId,
-      phase: e.phase,
-      date: e.date.toISOString(),
-      hours: e.hours,
-      absenceCode: e.absenceCode,
-      notes: e.notes,
-    })),
-  }));
+  const weeksData = weeks.map(toWeekData);
 
   return (
     <div className="space-y-4 max-w-5xl">

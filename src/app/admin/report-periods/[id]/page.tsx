@@ -8,6 +8,8 @@ import { formatDate } from "@/lib/utils";
 import { BackButton } from "@/components/ui/back-button";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { AdminDeletePeriodButton } from "@/components/timesheet/AdminDeletePeriodButton";
+import { loadPeriodWeeks, toWeekData } from "@/lib/period-weeks.server";
+import { weekCountForRange } from "@/lib/period-weeks";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   DRAFT: "secondary",
@@ -35,39 +37,27 @@ export default async function AdminPeriodReviewPage({ params }: { params: Promis
     include: {
       employee: { select: { name: true, email: true, title: true } },
       reviewer: { select: { name: true } },
-      weeks: {
-        include: { entries: { orderBy: { date: "asc" } } },
-        orderBy: { weekStartDate: "asc" },
-      },
     },
   });
 
   if (!period) notFound();
 
-  const projects = await db.project.findMany({
-    where: { status: "ACTIVE" },
-    orderBy: { name: "asc" },
-  });
+  const [projects, weeks] = await Promise.all([
+    db.project.findMany({ where: { status: "ACTIVE" }, orderBy: { name: "asc" } }),
+    loadPeriodWeeks(period.employeeId, period),
+  ]);
 
   const officeAdminProject = projects.find((p) => p.name === "001_Office Admin");
   const rowOrderData = period.rowOrder as Array<{ projectId: string; phase: string }> | null;
 
-  const weeksData = period.weeks.map((w) => ({
-    id: w.id,
-    weekStartDate: w.weekStartDate.toISOString(),
-    status: w.status as "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "REVISION_REQUESTED",
-    updatedAt: w.updatedAt.toISOString(),
-    entries: w.entries.map((e) => ({
-      projectId: e.projectId,
-      phase: e.phase,
-      date: e.date.toISOString(),
-      hours: e.hours,
-      absenceCode: e.absenceCode,
-      notes: e.notes,
-    })),
-  }));
+  const weeksData = weeks.map(toWeekData);
 
-  const totalHours = period.weeks.flatMap((w) => w.entries).reduce((s, e) => s + e.hours, 0);
+  // Only hours in weeks this period owns — a shared boundary week is counted by the period
+  // it is attached to, so the two timesheets never report the same hours twice.
+  const totalHours = weeks
+    .filter((w) => w.reportPeriodId === period.id)
+    .flatMap((w) => w.entries)
+    .reduce((s, e) => s + e.hours, 0);
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -88,7 +78,7 @@ export default async function AdminPeriodReviewPage({ params }: { params: Promis
             </div>
             <p className="text-sm text-neutral-500">{period.employee.title} · {period.employee.email}</p>
             <p className="text-sm text-neutral-500 mt-0.5">
-              {formatDate(period.startDate)} – {formatDate(period.endDate)} · {period.weeks.length} weeks · {totalHours}h total
+              {formatDate(period.startDate)} – {formatDate(period.endDate)} · {weekCountForRange(period.startDate, period.endDate)} weeks · {totalHours}h total
             </p>
           </div>
           <div className="flex flex-col items-end gap-3">

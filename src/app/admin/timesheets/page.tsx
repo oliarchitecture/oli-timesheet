@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { TimesheetFilters } from "./TimesheetFilters";
+import { weekCountForRange } from "@/lib/period-weeks";
 import type { TimesheetWeek } from "@prisma/client";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
@@ -100,7 +101,7 @@ export default async function AdminTimesheetsPage({
                       <div>
                         <p className="text-sm font-medium text-neutral-800">{p.employee.name}</p>
                         <p className="text-xs text-neutral-500">
-                          {formatDate(p.startDate)} – {formatDate(p.endDate)} · {p.weeks.length} weeks · {totalHours}h
+                          {formatDate(p.startDate)} – {formatDate(p.endDate)} · {weekCountForRange(p.startDate, p.endDate)} weeks · {totalHours}h
                           {p.submittedAt ? ` · Submitted ${formatDate(p.submittedAt)}` : ""}
                         </p>
                       </div>

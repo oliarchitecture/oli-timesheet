@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils";
 import { NewPeriodButton } from "@/components/timesheet/NewPeriodButton";
 import { DeletePeriodButton } from "@/components/timesheet/DeletePeriodButton";
 import { statusLabel, statusVariant } from "@/lib/timesheet-status";
+import { weekCountForRange } from "@/lib/period-weeks";
 
 export default async function TimesheetsPage() {
   const session = await auth();
@@ -51,7 +52,9 @@ export default async function TimesheetsPage() {
                   (sum, w) => sum + w.entries.reduce((s, e) => s + e.hours, 0),
                   0
                 );
-                const weekCount = period.weeks.length;
+                // Counted from the date range, not the attached rows: a boundary week shows
+                // up in both timesheets even though only one of them owns it.
+                const weekCount = weekCountForRange(period.startDate, period.endDate);
                 return (
                   <div key={period.id} className="flex items-center gap-2 px-6 py-4 hover:bg-neutral-50 transition-colors">
                     <Link href={`/timesheets/period/${period.id}`} className="flex-1 min-w-0">

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getWeekStart } from "@/lib/utils";
+import { weekStartsForRange } from "@/lib/period-weeks";
+import { loadPeriodWeeks } from "@/lib/period-weeks.server";
 import { isSameUTCDay } from "@/lib/holidays";
 import { absenceCodeForDay, hoursForDay } from "@/lib/leave-utils";
 
@@ -54,15 +56,7 @@ export async function POST(req: Request) {
   }
 
   // Compute all week-start dates (Sundays) that overlap the range
-  const firstWeekStart = getWeekStart(start);
-  const lastWeekStart = getWeekStart(end);
-
-  const weekStarts: Date[] = [];
-  const cur = new Date(firstWeekStart);
-  while (cur <= lastWeekStart) {
-    weekStarts.push(new Date(cur));
-    cur.setUTCDate(cur.getUTCDate() + 7);
-  }
+  const weekStarts = weekStartsForRange(start, end);
 
   // Create the period record
   const newPeriod = await db.reportPeriod.create({
@@ -73,20 +67,19 @@ export async function POST(req: Request) {
     },
   });
 
-  // Attach a TimesheetWeek for every week overlapping the range.
+  // Make sure a TimesheetWeek exists for every week overlapping the range.
   //
-  // A week can only have one parent period, but weeks run Sun–Sat while periods are
-  // arbitrary ranges, so a boundary week can overlap two periods. If that week was already
-  // submitted or approved under the earlier period we leave it there — pulling it across
-  // would either reopen reviewed hours or (worse) drag its lock into this new period and
-  // leave the employee unable to edit. Anything still in progress moves over and is reset
-  // to DRAFT so it matches the period it now belongs to.
+  // A week can only have one parent period, but weeks run Sun–Sat while periods follow
+  // calendar months, so a boundary week overlaps two of them. Ownership goes to whichever
+  // period got there first and stays put — this period simply borrows the week and edits
+  // its own days (see loadPeriodWeeks / lockedDaysForWeek). Re-parenting it here used to
+  // make the week disappear from the earlier period and reset its status along the way.
   for (const weekStart of weekStarts) {
     const existing = await db.timesheetWeek.findUnique({
       where: {
         employeeId_weekStartDate: { employeeId: session.user.id, weekStartDate: weekStart },
       },
-      select: { id: true, status: true },
+      select: { id: true, reportPeriodId: true },
     });
 
     if (!existing) {
@@ -100,12 +93,14 @@ export async function POST(req: Request) {
       continue;
     }
 
-    if (existing.status === "SUBMITTED" || existing.status === "APPROVED") continue;
-
-    await db.timesheetWeek.update({
-      where: { id: existing.id },
-      data: { reportPeriodId: newPeriod.id, status: "DRAFT", submittedAt: null },
-    });
+    // Unattached weeks (created by the current-week upsert or by PTO approval) have no
+    // period to lose, so this one adopts them.
+    if (existing.reportPeriodId === null) {
+      await db.timesheetWeek.update({
+        where: { id: existing.id },
+        data: { reportPeriodId: newPeriod.id },
+      });
+    }
   }
 
   // Pre-fill approved PTO into the newly-created weeks
@@ -123,14 +118,15 @@ export async function POST(req: Request) {
   ]);
 
   if (officeAdminProject && approvedLeaves.length > 0) {
-    const weeks = await db.timesheetWeek.findMany({
-      where: { reportPeriodId: newPeriod.id },
-      select: { id: true, weekStartDate: true },
-    });
+    // Includes boundary weeks this period borrows, so PTO falling in the first or last
+    // partial week still gets pre-filled.
+    const weeks = await loadPeriodWeeks(session.user.id, newPeriod);
 
     for (const leave of approvedLeaves) {
       for (const day of leave.days) {
         const dayDate = new Date(day.date);
+        // Only this period's own days — the rest of a shared week belongs to its neighbour.
+        if (dayDate < start || dayDate > end) continue;
         const weekStart = getWeekStart(dayDate);
         const week = weeks.find((w) => isSameUTCDay(w.weekStartDate, weekStart));
         if (!week) continue;

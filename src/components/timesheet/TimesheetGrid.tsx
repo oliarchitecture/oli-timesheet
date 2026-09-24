@@ -7,6 +7,7 @@ import { cn, formatDateShort, getWeekDays, isSameDay } from "@/lib/utils";
 import { Save, Loader2, X, MessageSquare, ChevronUp, ChevronDown } from "lucide-react";
 import { getFederalHolidays, isSameUTCDay } from "@/lib/holidays";
 import { canEditTimesheet, type TimesheetStatus } from "@/lib/timesheet-status";
+import { toDayKey } from "@/lib/period-weeks";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -64,8 +65,14 @@ interface TimesheetGridProps {
   lastSaved?: Date | null;
   showSubmit?: boolean;
   onSaved?: () => void;
-  periodStart?: Date;
-  periodEnd?: Date;
+  /** The reporting period this week is being edited from, sent with every save. */
+  periodId?: string | null;
+  /**
+   * Days of this week that belong to a neighbouring period which has already closed,
+   * keyed `YYYY-MM-DD` and mapped to that period's label. They are shown with their hours
+   * but cannot be edited from here — the week is shared, the days are not.
+   */
+  lockedDays?: Record<string, string>;
   officeAdminProjectId?: string | null;
   /** Ordered list of rows for this period (persisted). */
   rowOrder?: Array<{ projectId: string; phase: string }> | null;
@@ -252,8 +259,8 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
   lastSaved,
   showSubmit = true,
   onSaved,
-  periodStart,
-  periodEnd,
+  periodId,
+  lockedDays,
   officeAdminProjectId,
   rowOrder,
   templateRows,
@@ -277,10 +284,9 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
   const weekDays = getWeekDays(weekStart);
   const isReadOnly = isReadOnlyProp ?? !canEditTimesheet({ weekStatus: status, isAdmin });
 
-  function isBlocked(day: Date): boolean {
-    if (periodStart && day.getTime() < periodStart.getTime()) return true;
-    if (periodEnd && day.getTime() > periodEnd.getTime()) return true;
-    return false;
+  /** The timesheet a day belongs to when it is not ours to edit, else null. */
+  function lockedBy(day: Date): string | null {
+    return lockedDays?.[toDayKey(day)] ?? null;
   }
 
   // ── Row & entry state ──────────────────────────────────────────────────────
@@ -454,7 +460,9 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
       const res = await fetch(`/api/timesheets/${timesheetId}/entries`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entries: entriesToSave }),
+        // periodId tells the server which timesheet these hours are being entered from, so
+        // it can leave a shared week's other days alone instead of replacing all seven.
+        body: JSON.stringify({ entries: entriesToSave, periodId: periodId ?? null }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -502,11 +510,18 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
               <th className="text-left px-3 py-3 font-semibold text-neutral-600 w-48">Project</th>
               <th className="text-left px-2 py-3 font-semibold text-neutral-600 w-36">Phase</th>
               {weekDays.map((day, i) => {
-                const blocked = isBlocked(day);
+                const owner = lockedBy(day);
                 return (
-                  <th key={i} className={cn("text-center px-1 py-3 font-semibold min-w-[68px]", blocked ? "bg-neutral-50 text-neutral-300" : "text-neutral-600")}>
+                  <th
+                    key={i}
+                    className={cn("text-center px-1 py-3 font-semibold min-w-[68px]", owner ? "bg-neutral-50 text-neutral-400" : "text-neutral-600")}
+                    title={owner ? `Belongs to the ${owner} timesheet` : undefined}
+                  >
                     <div>{day.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" })}</div>
                     <div className="text-xs font-normal mt-0.5">{formatDateShort(day)}</div>
+                    {owner && (
+                      <div className="text-[10px] font-normal text-neutral-400 mt-0.5 leading-tight">{owner}</div>
+                    )}
                   </th>
                 );
               })}
@@ -570,16 +585,18 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
 
                   {/* Day cells */}
                   {weekDays.map((day, i) => {
-                    if (isBlocked(day)) {
-                      return <td key={i} className="bg-neutral-50/80 border-x border-neutral-100" />;
-                    }
+                    const owner = lockedBy(day);
                     const cell = getCellValue(row.projectId, row.phase, day);
                     return (
-                      <td key={i} className="px-1 py-1.5 text-center">
+                      <td
+                        key={i}
+                        className={cn("px-1 py-1.5 text-center", owner && "bg-neutral-50/80 border-x border-neutral-100")}
+                        title={owner ? `Recorded on the ${owner} timesheet` : undefined}
+                      >
                         <CellInput
                           hours={cell?.hours ?? 0}
                           absenceCode={cell?.absenceCode}
-                          readOnly={isReadOnly}
+                          readOnly={isReadOnly || owner !== null}
                           onChange={(h, ac) => setCellValue(row.projectId, row.phase, day, h, ac)}
                         />
                       </td>
@@ -647,12 +664,16 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
             <tr className="bg-neutral-100 border-t-2 border-neutral-200 font-semibold">
               <td colSpan={2} className="px-3 py-2.5 text-sm text-neutral-700">Total / Day</td>
               {weekDays.map((day, i) => {
-                if (isBlocked(day)) {
-                  return <td key={i} className="bg-neutral-50/80" />;
-                }
                 const total = getDayTotal(day);
                 return (
-                  <td key={i} className={cn("text-center px-1 py-2.5 text-sm", total > 0 ? "text-neutral-800" : "text-neutral-400")}>
+                  <td
+                    key={i}
+                    className={cn(
+                      "text-center px-1 py-2.5 text-sm",
+                      lockedBy(day) && "bg-neutral-50/80",
+                      total > 0 ? "text-neutral-800" : "text-neutral-400"
+                    )}
+                  >
                     {total > 0 ? total : "–"}
                   </td>
                 );

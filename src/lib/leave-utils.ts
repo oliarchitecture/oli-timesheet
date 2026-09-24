@@ -14,9 +14,17 @@ export function absenceCodeForDay(type: LeaveType, halfDay: boolean): string {
   return halfDay ? "H/D" : LEAVE_TYPE_TO_ABSENCE_CODE[type];
 }
 
-/** Hours for a timesheet entry: 4 for half-day, 8 for full day. */
-export function hoursForDay(halfDay: boolean): number {
-  return halfDay ? 4 : 8;
+/**
+ * Hours recorded on a timesheet for a day of approved leave: always 0.
+ *
+ * The absence code (V, S, H/D…) is what marks the day as time off; the hours column counts
+ * worked hours only. Picking an absence code by hand in the grid has always set 0 hours, so
+ * pre-filled PTO has to match — otherwise approved leave silently added 8h to 001_Office
+ * Admin while the same day entered manually added none. The cell stays editable either way,
+ * so an employee can still type hours against a partially worked day.
+ */
+export function hoursForDay(_halfDay: boolean): number {
+  return 0;
 }
 
 export interface PtoEntitlement {
