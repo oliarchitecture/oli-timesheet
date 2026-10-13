@@ -11,6 +11,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { ExpenseCategory } from "@prisma/client";
+import { formatDateNumeric, todayISODate } from "@/lib/utils";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -161,7 +162,7 @@ export function ExpenseForm({
   const amountDue = total - (parseFloat(advance) || 0);
 
   function addItem() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayISODate();
     setItems((prev) => [
       ...prev,
       { _key: makeKey(), projectId: projects[0]?.id ?? "", date: today, category: "TRANSPORTATION", otherDescription: "", description: "", amount: "" },
@@ -409,7 +410,7 @@ export function ExpenseForm({
                         className="w-full rounded border border-neutral-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                       />
                     ) : (
-                      new Date(item.date).toLocaleDateString("en-US")
+                      formatDateNumeric(item.date)
                     )}
                   </td>
                   <td className="px-4 py-2">

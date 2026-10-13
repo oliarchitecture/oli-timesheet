@@ -5,6 +5,7 @@ import { BackButton } from "@/components/ui/back-button";
 import { Badge } from "@/components/ui/badge";
 import { ExpenseReviewActions } from "./ExpenseReviewActions";
 import { AdminDocumentList } from "./AdminDocumentList";
+import { formatDateNumeric } from "@/lib/utils";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -141,7 +142,7 @@ export default async function AdminExpenseDetailPage({
               {report.items.map((item) => (
                 <tr key={item.id}>
                   <td className="px-4 py-3 text-neutral-700">
-                    {new Date(item.date).toLocaleDateString("en-US")}
+                    {formatDateNumeric(item.date)}
                   </td>
                   <td className="px-4 py-3 text-neutral-700">{item.project.name}</td>
                   <td className="px-4 py-3 text-neutral-700">

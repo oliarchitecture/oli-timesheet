@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { todayISODate } from "@/lib/utils";
 
 interface Employee { id: string; name: string; }
 interface Project { id: string; name: string; }
@@ -19,12 +20,8 @@ interface ReportRow {
 export function ReportsClient({ employees, projects }: { employees: Employee[]; projects: Project[] }) {
   const [reportType, setReportType] = useState("hours-by-employee");
   const [employeeId, setEmployeeId] = useState("all");
-  const [startDate, setStartDate] = useState(() => {
-    const d = new Date();
-    d.setDate(1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(() => todayISODate().slice(0, 8) + "01");
+  const [endDate, setEndDate] = useState(todayISODate);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ReportRow[] | null>(null);
   const [error, setError] = useState("");

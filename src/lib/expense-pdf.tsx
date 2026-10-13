@@ -169,7 +169,7 @@ function formatAmount(n: number) {
 
 function formatDate(d: Date | string) {
   const date = typeof d === "string" ? new Date(d) : d;
-  return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+  return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", timeZone: "UTC" });
 }
 
 function categoryLabel(category: string, other: string | null) {

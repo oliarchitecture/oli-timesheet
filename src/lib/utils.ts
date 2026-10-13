@@ -20,6 +20,19 @@ export function formatDateShort(date: Date | string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+/** Formats a date as M/D/YYYY (UTC) */
+export function formatDateNumeric(date: Date | string): string {
+  return new Date(date).toLocaleDateString("en-US", { timeZone: "UTC" });
+}
+
+/** Returns today's local calendar date as YYYY-MM-DD, for <input type="date"> defaults */
+export function todayISODate(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 /** Formats a date as YYYY/MM/DD (UTC) */
 export function formatDateSlash(date: Date | string): string {
   const d = new Date(date);

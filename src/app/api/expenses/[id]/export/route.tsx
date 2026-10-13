@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { downloadReceipt } from "@/lib/supabase-storage";
+import { formatDateNumeric } from "@/lib/utils";
 import React from "react";
 
 const MONTH_NAMES = [
@@ -52,7 +53,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     [],
     ["Date", "Project", "Category", "Description", "Amount ($)"],
     ...report.items.map((item) => [
-      new Date(item.date).toLocaleDateString("en-US"),
+      formatDateNumeric(item.date),
       item.project.name,
       item.category === "OTHER"
         ? `Other: ${item.otherDescription ?? ""}`

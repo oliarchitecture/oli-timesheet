@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { CalendarPlus, Loader2 } from "lucide-react";
+import { todayISODate } from "@/lib/utils";
 
 function computeEndDate(startValue: string): string {
   const d = new Date(startValue + "T00:00:00Z");
@@ -29,7 +30,7 @@ interface NewPeriodButtonProps {
 export function NewPeriodButton({ defaultPeriodStartDay }: NewPeriodButtonProps) {
   const router = useRouter();
 
-  const todayIso = new Date().toISOString().slice(0, 10);
+  const todayIso = todayISODate();
   const initialStart = defaultPeriodStartDay
     ? nearestOccurrenceOfDay(defaultPeriodStartDay)
     : todayIso;
