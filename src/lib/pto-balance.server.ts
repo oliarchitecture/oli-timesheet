@@ -15,6 +15,17 @@ export interface PtoLine {
 export interface PtoMismatch {
   date: Date;
   message: string;
+  /**
+   * "worked": an approved PTO day with no PTO code on the timesheet — the employee can ask
+   * for it to be taken off. "type": the timesheet shows a different PTO code. "unrequested":
+   * a PTO code on the timesheet with no approved request (a notice only).
+   */
+  kind: "worked" | "type" | "unrequested";
+  /** The approved day and its request, for "worked" and "type". */
+  dayId?: string;
+  leaveRequestId?: string;
+  /** The employee already asked for this day to be removed; waiting on an admin. */
+  removalRequested?: boolean;
 }
 
 export interface PtoSummary {
@@ -81,7 +92,7 @@ export async function getPtoSummary(
         date: { gte: cycleStart, lt: cycleEnd },
         leaveRequest: { employeeId, status: "APPROVED" },
       },
-      select: { date: true, type: true, halfDay: true },
+      select: { id: true, leaveRequestId: true, date: true, type: true, halfDay: true, removalRequestedAt: true },
     }),
     db.ptoOverride.findMany({ where: { employeeId, cycleStart } }),
     db.timesheetEntry.findMany({
@@ -132,6 +143,10 @@ export async function getPtoSummary(
       message: found
         ? `${dayLabel(d.date)}: approved as ${label}, but your timesheet shows ${found}.`
         : `${dayLabel(d.date)}: approved as ${label}, but your timesheet shows you worked.`,
+      kind: found ? "type" : "worked",
+      dayId: d.id,
+      leaveRequestId: d.leaveRequestId,
+      removalRequested: d.removalRequestedAt !== null,
     });
   }
   for (const [key, codes] of codesByDay) {
@@ -142,6 +157,7 @@ export async function getPtoSummary(
     mismatches.push({
       date,
       message: `${dayLabel(date)}: your timesheet shows ${code}, but there is no approved PTO request for that day.`,
+      kind: "unrequested",
     });
   }
   mismatches.sort((a, b) => a.date.getTime() - b.date.getTime());

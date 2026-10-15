@@ -42,12 +42,17 @@ export default async function AdminLeavePage() {
   });
 
   const pending = requests.filter((r) => r.status === "PENDING");
+  const dayChanges = requests.filter((r) => r.days.some((d) => d.removalRequestedAt)).length;
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold text-neutral-900">PTO Requests</h2>
-        <p className="text-sm text-neutral-500 mt-0.5">{pending.length} pending · {requests.length} total</p>
+        <p className="text-sm text-neutral-500 mt-0.5">
+          {pending.length} pending
+          {dayChanges > 0 && <> · {dayChanges} day change{dayChanges !== 1 ? "s" : ""} to review</>}
+          {" · "}{requests.length} total
+        </p>
       </div>
 
       <Card>
@@ -74,7 +79,12 @@ export default async function AdminLeavePage() {
                         {numDays} day{numDays !== 1 ? "s" : ""}
                       </p>
                     </div>
-                    <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {lr.days.some((d) => d.removalRequestedAt) && (
+                        <Badge variant="warning">Day change requested</Badge>
+                      )}
+                      <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>
+                    </div>
                   </Link>
                 );
               })}

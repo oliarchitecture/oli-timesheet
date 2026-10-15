@@ -167,6 +167,9 @@ model LeaveRequestDay {
   halfDay        Boolean      @default(false)
   halfDayPeriod  HalfDayPeriod?
   reason         String?
+  /// Set when the employee says they worked this approved day after all. The day keeps
+  /// counting until an admin approves (the day is deleted) or declines (this is cleared).
+  removalRequestedAt DateTime?
 
   leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
 

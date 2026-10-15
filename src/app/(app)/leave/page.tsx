@@ -10,6 +10,7 @@ import { formatDate, formatDateSlash } from "@/lib/utils";
 import { getPtoSummary } from "@/lib/pto-balance.server";
 import { getFederalHolidays } from "@/lib/holidays";
 import { DeletePTOButton } from "@/components/leave/DeletePTOButton";
+import { WorkedDayButton } from "@/components/leave/WorkedDayButton";
 
 const statusVariant: Record<string, "success" | "warning" | "secondary" | "destructive"> = {
   PENDING: "warning",
@@ -179,11 +180,19 @@ export default async function PTOPage() {
             <p className="font-medium">Your timesheet doesn&apos;t match your approved PTO</p>
             <ul className="space-y-0.5">
               {pto.mismatches.map((m) => (
-                <li key={m.date.toISOString()}>{m.message}</li>
+                <li key={m.date.toISOString()} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span>{m.message}</span>
+                  {m.kind === "worked" && m.dayId && (
+                    m.removalRequested
+                      ? <span className="text-xs italic text-amber-700">Sent to your admin to remove from your PTO</span>
+                      : <WorkedDayButton dayId={m.dayId} />
+                  )}
+                </li>
               ))}
             </ul>
             <p className="text-xs text-amber-700">
-              Your balance counts approved PTO requests. If your plans changed, ask your admin to update the request or your balance.
+              Your balance counts approved PTO requests. If you worked an approved day, click &ldquo;I worked this day&rdquo; and
+              your admin will take it off once they approve. Otherwise, check your timesheet for that day.
             </p>
           </div>
         </div>

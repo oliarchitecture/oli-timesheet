@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
@@ -5,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { dayPortionLabel } from "@/lib/leave-utils";
+import { DayRemovalActions } from "@/components/leave/DayRemovalActions";
 import { LeaveReviewActions } from "./LeaveReviewActions";
 import { BackButton } from "@/components/ui/back-button";
 
@@ -98,23 +100,32 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                   </thead>
                   <tbody className="divide-y divide-neutral-100">
                     {request.days.map((d) => (
-                      <tr key={d.id}>
-                        <td className="px-3 py-2 text-neutral-700 font-medium whitespace-nowrap">
-                          {new Date(d.date).toLocaleDateString("en-US", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                            timeZone: "UTC",
-                          })}
-                        </td>
-                        <td className="px-3 py-2 text-neutral-700">{leaveTypeLabel[d.type] ?? d.type}</td>
-                        <td className="px-3 py-2">
-                          <Badge variant={d.halfDay ? "secondary" : "outline"}>
-                            {dayPortionLabel(d.halfDay, d.halfDayPeriod)}
-                          </Badge>
-                        </td>
-                        <td className="px-3 py-2 text-neutral-500 text-xs">{d.reason ?? "—"}</td>
-                      </tr>
+                      <Fragment key={d.id}>
+                        <tr>
+                          <td className="px-3 py-2 text-neutral-700 font-medium whitespace-nowrap">
+                            {new Date(d.date).toLocaleDateString("en-US", {
+                              weekday: "short",
+                              month: "short",
+                              day: "numeric",
+                              timeZone: "UTC",
+                            })}
+                          </td>
+                          <td className="px-3 py-2 text-neutral-700">{leaveTypeLabel[d.type] ?? d.type}</td>
+                          <td className="px-3 py-2">
+                            <Badge variant={d.halfDay ? "secondary" : "outline"}>
+                              {dayPortionLabel(d.halfDay, d.halfDayPeriod)}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 text-neutral-500 text-xs">{d.reason ?? "—"}</td>
+                        </tr>
+                        {d.removalRequestedAt && (
+                          <tr className="bg-amber-50">
+                            <td colSpan={4} className="px-3 py-2">
+                              <DayRemovalActions dayId={d.id} />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
