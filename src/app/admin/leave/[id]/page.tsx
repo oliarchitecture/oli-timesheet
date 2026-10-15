@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 import { dayPortionLabel } from "@/lib/leave-utils";
-import { DayRemovalActions } from "@/components/leave/DayRemovalActions";
 import { LeaveReviewActions } from "./LeaveReviewActions";
 import { BackButton } from "@/components/ui/back-button";
 
@@ -44,12 +43,14 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
       employee: { select: { name: true, email: true, title: true } },
       reviewer: { select: { name: true } },
       days: { orderBy: { date: "asc" } },
+      workedDays: true,
     },
   });
 
   if (!request) notFound();
 
   const numDays = request.days.reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1.0), 0);
+  const workedOn = (date: Date) => request.workedDays.find((w) => w.date.getTime() === date.getTime());
 
   return (
     <div className="space-y-6 max-w-xl">
@@ -118,10 +119,11 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                           </td>
                           <td className="px-3 py-2 text-neutral-500 text-xs">{d.reason ?? "—"}</td>
                         </tr>
-                        {d.removalRequestedAt && (
+                        {workedOn(d.date) && (
                           <tr className="bg-amber-50">
-                            <td colSpan={4} className="px-3 py-2">
-                              <DayRemovalActions dayId={d.id} />
+                            <td colSpan={4} className="px-3 py-1.5 text-xs text-amber-800">
+                              Employee reported working this day (noted {formatDate(workedOn(d.date)!.createdAt)}).
+                              It stays on the approved request but no longer counts against their balance.
                             </td>
                           </tr>
                         )}

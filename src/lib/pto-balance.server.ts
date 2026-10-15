@@ -24,8 +24,6 @@ export interface PtoMismatch {
   /** The approved day and its request, for "worked" and "type". */
   dayId?: string;
   leaveRequestId?: string;
-  /** The employee already asked for this day to be removed; waiting on an admin. */
-  removalRequested?: boolean;
 }
 
 export interface PtoSummary {
@@ -92,7 +90,10 @@ export async function getPtoSummary(
         date: { gte: cycleStart, lt: cycleEnd },
         leaveRequest: { employeeId, status: "APPROVED" },
       },
-      select: { id: true, leaveRequestId: true, date: true, type: true, halfDay: true, removalRequestedAt: true },
+      select: {
+        id: true, leaveRequestId: true, date: true, type: true, halfDay: true,
+        leaveRequest: { select: { workedDays: { select: { date: true } } } },
+      },
     }),
     db.ptoOverride.findMany({ where: { employeeId, cycleStart } }),
     db.timesheetEntry.findMany({
@@ -105,8 +106,15 @@ export async function getPtoSummary(
     }),
   ]);
 
+  // Days the employee reported working stay on the approved request but don't count.
+  const workedKey = (requestId: string, date: Date) => `${requestId}|${date.toISOString().slice(0, 10)}`;
+  const worked = new Set(
+    approvedDays.flatMap((d) => d.leaveRequest.workedDays.map((w) => workedKey(d.leaveRequestId, w.date)))
+  );
+  const takenDays = approvedDays.filter((d) => !worked.has(workedKey(d.leaveRequestId, d.date)));
+
   const usedOf = (type: string) =>
-    approvedDays.filter((d) => d.type === type).reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1), 0);
+    takenDays.filter((d) => d.type === type).reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1), 0);
 
   function line(type: "VACATION" | "SICK", autoTotal: number): PtoLine {
     const o = overrides.find((x) => x.type === type);
@@ -131,6 +139,11 @@ export async function getPtoSummary(
   const approvedKeys = new Set<string>();
   for (const d of approvedDays) {
     if (d.date >= checkUntil) continue;
+    // A day the employee reported working needs no warning and no timesheet code.
+    if (worked.has(workedKey(d.leaveRequestId, d.date))) {
+      approvedKeys.add(d.date.toISOString().slice(0, 10));
+      continue;
+    }
     const key = d.date.toISOString().slice(0, 10);
     approvedKeys.add(key);
     const want = expectedCode(d.type, d.halfDay);
@@ -146,7 +159,6 @@ export async function getPtoSummary(
       kind: found ? "type" : "worked",
       dayId: d.id,
       leaveRequestId: d.leaveRequestId,
-      removalRequested: d.removalRequestedAt !== null,
     });
   }
   for (const [key, codes] of codesByDay) {

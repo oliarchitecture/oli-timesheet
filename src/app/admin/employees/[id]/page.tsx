@@ -6,7 +6,6 @@ import { PTOBalancesForm } from "./PTOBalancesForm";
 import { formatDate } from "@/lib/utils";
 import { getPtoSummary } from "@/lib/pto-balance.server";
 import { AlertTriangle } from "lucide-react";
-import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -76,14 +75,6 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                   {pto.mismatches.map((m) => (
                     <li key={m.date.toISOString()}>
                       {m.message.replace(/your timesheet/g, "the timesheet").replace(/shows you worked/g, "shows a work day")}
-                      {m.removalRequested && m.leaveRequestId && (
-                        <>
-                          {" "}
-                          <Link href={`/admin/leave/${m.leaveRequestId}`} className="font-medium underline">
-                            Employee asked to remove it. Review
-                          </Link>
-                        </>
-                      )}
                     </li>
                   ))}
                 </ul>

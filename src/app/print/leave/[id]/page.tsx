@@ -34,6 +34,7 @@ export default async function PrintLeaveRequestPage({
     where: { id },
     include: {
       days: { orderBy: { date: "asc" } },
+      workedDays: { orderBy: { date: "asc" } },
       employee: { select: { id: true, name: true, title: true } },
     },
   });
@@ -99,6 +100,16 @@ export default async function PrintLeaveRequestPage({
           ))}
         </tbody>
       </table>
+
+      {request.workedDays.length > 0 && (
+        <div className="mb-8 text-sm">
+          <p className="text-neutral-500">Note</p>
+          <p className="text-neutral-900">
+            Employee reported working {request.workedDays.map((w) => formatDate(w.date)).join(", ")}. The approved
+            request is unchanged; {request.workedDays.length === 1 ? "that day is" : "those days are"} not counted against the PTO balance.
+          </p>
+        </div>
+      )}
 
       {request.reviewComment && (
         <div className="mb-8 text-sm">

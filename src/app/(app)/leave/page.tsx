@@ -42,7 +42,7 @@ export default async function PTOPage() {
   const [requests, balances, employee] = await Promise.all([
     db.leaveRequest.findMany({
       where: { employeeId: session.user.id },
-      include: { days: { orderBy: { date: "asc" } } },
+      include: { days: { orderBy: { date: "asc" } }, workedDays: { orderBy: { date: "asc" } } },
       orderBy: { createdAt: "desc" },
     }),
     db.leaveBalance.findMany({
@@ -182,17 +182,13 @@ export default async function PTOPage() {
               {pto.mismatches.map((m) => (
                 <li key={m.date.toISOString()} className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span>{m.message}</span>
-                  {m.kind === "worked" && m.dayId && (
-                    m.removalRequested
-                      ? <span className="text-xs italic text-amber-700">Sent to your admin to remove from your PTO</span>
-                      : <WorkedDayButton dayId={m.dayId} />
-                  )}
+                  {m.kind === "worked" && m.dayId && <WorkedDayButton dayId={m.dayId} />}
                 </li>
               ))}
             </ul>
             <p className="text-xs text-amber-700">
-              Your balance counts approved PTO requests. If you worked an approved day, click &ldquo;I worked this day&rdquo; and
-              your admin will take it off once they approve. Otherwise, check your timesheet for that day.
+              Your balance counts approved PTO requests. If you worked an approved day, click &ldquo;I worked this day&rdquo;: a note
+              is added to the request, the day stops counting, and your admin is told. Otherwise, check your timesheet for that day.
             </p>
           </div>
         </div>
@@ -223,6 +219,11 @@ export default async function PTOPage() {
                       </p>
                       {lr.reviewComment && (
                         <p className="text-xs text-amber-700 mt-0.5">Comment: {lr.reviewComment}</p>
+                      )}
+                      {lr.workedDays.length > 0 && (
+                        <p className="text-xs text-neutral-500 mt-0.5">
+                          Worked instead, not counted: {lr.workedDays.map((w) => formatDate(w.date)).join(", ")}
+                        </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">

@@ -91,8 +91,8 @@ export async function notifyAdminsOfSubmission(
   }
 }
 
-/** Tells admins an employee says they worked a day of their approved PTO. */
-export async function notifyAdminsOfPtoDayRemoval(employeeName: string, dayLabel: string, linkUrl: string) {
+/** Lets admins know an employee reported working a day of their approved PTO. No action needed. */
+export async function notifyAdminsOfPtoDayWorked(employeeName: string, dayLabel: string, linkUrl: string) {
   try {
     const admins = await db.employee.findMany({
       where: { role: "ADMIN", isActive: true, receivesNotifications: true },
@@ -102,37 +102,18 @@ export async function notifyAdminsOfPtoDayRemoval(employeeName: string, dayLabel
       admins.map((admin) =>
         sendEmail(
           admin.email,
-          `PTO day change requested — ${employeeName}`,
+          `PTO day worked — ${employeeName}`,
           `<p>Hi ${admin.name},</p>
-<p><strong>${employeeName}</strong> says they worked on <strong>${dayLabel}</strong>, which is part of their approved PTO, and asks for it to be taken off.</p>
-<p>It still counts against their balance until you approve the change.</p>
-<p><a href="${APP_URL}${linkUrl}">Review it here →</a></p>
+<p><strong>${employeeName}</strong> reported working on <strong>${dayLabel}</strong>, which is part of their approved PTO.</p>
+<p>The approved request is unchanged; a note was added to it and that day no longer counts against their balance. No action is needed.</p>
+<p><a href="${APP_URL}${linkUrl}">View the request →</a></p>
 <p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`
         )
       )
     );
   } catch (err) {
-    console.error("[email] Failed to notify admins of PTO day removal:", err);
+    console.error("[email] Failed to notify admins of worked PTO day:", err);
   }
-}
-
-/** Tells the employee whether their worked PTO day was taken off. */
-export async function notifyEmployeePtoDayRemoval(
-  employeeEmail: string,
-  employeeName: string,
-  dayLabel: string,
-  approved: boolean
-) {
-  await sendEmail(
-    employeeEmail,
-    approved ? `${dayLabel} was removed from your PTO` : `${dayLabel} stays on your PTO`,
-    `<p>Hi ${employeeName},</p>
-<p>${approved
-      ? `Your admin removed <strong>${dayLabel}</strong> from your approved PTO. It no longer counts against your balance.`
-      : `Your admin kept <strong>${dayLabel}</strong> on your approved PTO, so it still counts against your balance. Please check your timesheet for that day.`}</p>
-<p><a href="${APP_URL}/leave">View your PTO →</a></p>
-<p style="color:#999;font-size:12px;">OLI Architecture Employee Portal</p>`
-  );
 }
 
 export async function notifyEmployeeDecision(

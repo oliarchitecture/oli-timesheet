@@ -37,12 +37,12 @@ export default async function AdminLeavePage() {
     include: {
       employee: { select: { name: true } },
       days: true,
+      workedDays: { select: { id: true } },
     },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
 
   const pending = requests.filter((r) => r.status === "PENDING");
-  const dayChanges = requests.filter((r) => r.days.some((d) => d.removalRequestedAt)).length;
 
   return (
     <div className="space-y-6">
@@ -50,7 +50,6 @@ export default async function AdminLeavePage() {
         <h2 className="text-xl font-semibold text-neutral-900">PTO Requests</h2>
         <p className="text-sm text-neutral-500 mt-0.5">
           {pending.length} pending
-          {dayChanges > 0 && <> · {dayChanges} day change{dayChanges !== 1 ? "s" : ""} to review</>}
           {" · "}{requests.length} total
         </p>
       </div>
@@ -80,8 +79,10 @@ export default async function AdminLeavePage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {lr.days.some((d) => d.removalRequestedAt) && (
-                        <Badge variant="warning">Day change requested</Badge>
+                      {lr.workedDays.length > 0 && (
+                        <Badge variant="secondary">
+                          {lr.workedDays.length} day{lr.workedDays.length !== 1 ? "s" : ""} worked
+                        </Badge>
                       )}
                       <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>
                     </div>

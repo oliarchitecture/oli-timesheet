@@ -157,6 +157,21 @@ model LeaveRequest {
   employee Employee         @relation(fields: [employeeId], references: [id])
   reviewer Employee?        @relation("LeaveReviewer", fields: [reviewedById], references: [id])
   days     LeaveRequestDay[]
+  workedDays LeaveWorkedDay[]
+}
+
+/// A note on an approved request: the employee reported working one of its days after all.
+/// The approved days themselves are never edited; a day noted here just stops counting
+/// against the balance.
+model LeaveWorkedDay {
+  id             String   @id @default(cuid())
+  leaveRequestId String
+  date           DateTime // the approved day that was worked (normalized to 00:00:00 UTC)
+  createdAt      DateTime @default(now())
+
+  leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
+
+  @@unique([leaveRequestId, date])
 }
 
 model LeaveRequestDay {
@@ -167,9 +182,6 @@ model LeaveRequestDay {
   halfDay        Boolean      @default(false)
   halfDayPeriod  HalfDayPeriod?
   reason         String?
-  /// Set when the employee says they worked this approved day after all. The day keeps
-  /// counting until an admin approves (the day is deleted) or declines (this is cleared).
-  removalRequestedAt DateTime?
 
   leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
 
