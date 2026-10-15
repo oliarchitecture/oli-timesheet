@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyAdminsOfSubmission } from "@/lib/email";
+import { halfDayPeriodFor } from "@/lib/leave-utils";
 
 const VALID_TYPES = ["VACATION", "SICK", "PERSONAL", "OTHER", "COMP_DAY"] as const;
 type ValidLeaveType = typeof VALID_TYPES[number];
@@ -25,7 +26,7 @@ export async function PUT(
   }
 
   const { days } = await req.json() as {
-    days: { date: string; type: string; halfDay: boolean; reason?: string }[];
+    days: { date: string; type: string; halfDay: boolean; halfDayPeriod?: string | null; reason?: string }[];
   };
 
   if (!Array.isArray(days) || days.length === 0) {
@@ -51,6 +52,7 @@ export async function PUT(
         date: new Date(d.date),
         type: d.type as ValidLeaveType,
         halfDay: d.halfDay === true,
+        halfDayPeriod: halfDayPeriodFor(d.halfDay === true, d.halfDayPeriod),
         reason: d.reason ?? null,
       })),
     });

@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notifyAdminsOfSubmission } from "@/lib/email";
+import { halfDayPeriodFor } from "@/lib/leave-utils";
 
 export async function GET() {
   const session = await auth();
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { days } = await req.json() as {
-    days: { date: string; type: string; halfDay: boolean; reason?: string }[];
+    days: { date: string; type: string; halfDay: boolean; halfDayPeriod?: string | null; reason?: string }[];
   };
 
   if (!Array.isArray(days) || days.length === 0) {
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
         date: new Date(d.date),
         type: d.type as ValidLeaveType,
         halfDay: d.halfDay === true,
+        halfDayPeriod: halfDayPeriodFor(d.halfDay === true, d.halfDayPeriod),
         reason: d.reason ?? null,
       })),
     });

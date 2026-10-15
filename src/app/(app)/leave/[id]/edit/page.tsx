@@ -20,6 +20,7 @@ export default async function EditLeaveRequestPage({ params }: { params: Promise
     date: d.date.toISOString().slice(0, 10),
     type: d.type as LeaveType,
     halfDay: d.halfDay,
+    halfDayPeriod: d.halfDayPeriod,
     reason: d.reason ?? "",
   }));
 

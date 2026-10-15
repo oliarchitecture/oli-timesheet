@@ -1,4 +1,21 @@
-import { LeaveType } from "@prisma/client";
+import { LeaveType, HalfDayPeriod } from "@prisma/client";
+
+/**
+ * The stored half of the day for a leave day: only a half day can carry one, and anything
+ * unrecognised becomes null — the same "half day, side unknown" state older requests have.
+ */
+export function halfDayPeriodFor(halfDay: boolean, period: unknown): HalfDayPeriod | null {
+  if (!halfDay) return null;
+  return period === "MORNING" || period === "AFTERNOON" ? period : null;
+}
+
+/** "Full Day", "Half Day (AM)", "Half Day (PM)", or plain "Half Day" for older requests. */
+export function dayPortionLabel(halfDay: boolean, period: HalfDayPeriod | null): string {
+  if (!halfDay) return "Full Day";
+  if (period === "MORNING") return "Half Day (AM)";
+  if (period === "AFTERNOON") return "Half Day (PM)";
+  return "Half Day";
+}
 
 const LEAVE_TYPE_TO_ABSENCE_CODE: Record<LeaveType, string> = {
   VACATION: "V",

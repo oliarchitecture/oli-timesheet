@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { dayPortionLabel } from "@/lib/leave-utils";
 import { PrintButton } from "@/components/leave/PrintButton";
 
 const leaveTypeLabel: Record<string, string> = {
@@ -92,7 +93,7 @@ export default async function PrintLeaveRequestPage({
             <tr key={day.id} className="border-b border-neutral-100">
               <td className="py-2">{formatDate(day.date)}</td>
               <td className="py-2">{leaveTypeLabel[day.type] ?? day.type}</td>
-              <td className="py-2">{day.halfDay ? "Half Day" : "Full Day"}</td>
+              <td className="py-2">{dayPortionLabel(day.halfDay, day.halfDayPeriod)}</td>
               <td className="py-2">{day.reason ?? "—"}</td>
             </tr>
           ))}

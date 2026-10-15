@@ -164,6 +164,7 @@ model LeaveRequestDay {
   date           DateTime
   type           LeaveType    @default(VACATION)
   halfDay        Boolean      @default(false)
+  halfDayPeriod  HalfDayPeriod?
   reason         String?
 
   leaveRequest LeaveRequest @relation(fields: [leaveRequestId], references: [id], onDelete: Cascade)
@@ -178,6 +179,13 @@ enum LeaveType {
   OTHER
   COMP_DAY
   MIXED
+}
+
+/// Which half of the office day (9:30–18:30) a half-day leave covers. Null on full days and on
+/// half days submitted before this choice existed.
+enum HalfDayPeriod {
+  MORNING
+  AFTERNOON
 }
 
 enum LeaveStatus {

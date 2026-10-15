@@ -28,10 +28,14 @@ export const LEAVE_TYPES = [
 
 export type LeaveType = "VACATION" | "SICK" | "PERSONAL" | "COMP_DAY" | "OTHER";
 
+export type HalfDayPeriod = "MORNING" | "AFTERNOON";
+
 export interface DayEntry {
   date: string;
   type: LeaveType;
   halfDay: boolean;
+  /** Null on full days, and on half days from before morning/afternoon could be chosen. */
+  halfDayPeriod: HalfDayPeriod | null;
   reason: string;
 }
 
@@ -41,6 +45,8 @@ interface RangeRow {
   startDate: string;
   endDate: string;
   halfDay: boolean;
+  /** Null on full days, and on half days from before morning/afternoon could be chosen. */
+  halfDayPeriod: HalfDayPeriod | null;
   reason: string;
 }
 
@@ -49,7 +55,7 @@ function makeKey() {
 }
 
 function emptyRow(): RangeRow {
-  return { _key: makeKey(), type: "VACATION", startDate: "", endDate: "", halfDay: false, reason: "" };
+  return { _key: makeKey(), type: "VACATION", startDate: "", endDate: "", halfDay: false, halfDayPeriod: null, reason: "" };
 }
 
 function computeWorkdays(start: string, end: string): string[] {
@@ -87,7 +93,7 @@ function expandRows(rows: RangeRow[]): { days: DayEntry[]; overlapCount: number 
         continue;
       }
       seen.add(date);
-      days.push({ date, type: row.type, halfDay: row.halfDay, reason: row.reason });
+      days.push({ date, type: row.type, halfDay: row.halfDay, halfDayPeriod: row.halfDayPeriod, reason: row.reason });
     }
   }
   days.sort((a, b) => a.date.localeCompare(b.date));
@@ -113,6 +119,7 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
         startDate: d.date,
         endDate: d.date,
         halfDay: d.halfDay,
+        halfDayPeriod: d.halfDayPeriod ?? null,
         reason: d.reason,
       }));
     }
@@ -162,6 +169,18 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
     );
   }
 
+  /** The Day select sets halfDay and halfDayPeriod together. "half" keeps an older half day as it was. */
+  function updatePortion(key: string, value: string) {
+    setRows((prev) =>
+      prev.map((r) => {
+        if (r._key !== key) return r;
+        if (value === "full") return { ...r, halfDay: false, halfDayPeriod: null };
+        if (value === "half") return { ...r, halfDay: true, halfDayPeriod: null };
+        return { ...r, halfDay: true, halfDayPeriod: value as HalfDayPeriod };
+      })
+    );
+  }
+
   const { days, overlapCount } = expandRows(rows);
   const totalDays = days.reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1), 0);
   const typeBreakdown = LEAVE_TYPES
@@ -185,7 +204,7 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          days: days.map((d) => ({ date: d.date, type: d.type, halfDay: d.halfDay, reason: d.reason || null })),
+          days: days.map((d) => ({ date: d.date, type: d.type, halfDay: d.halfDay, halfDayPeriod: d.halfDayPeriod, reason: d.reason || null })),
         }),
       });
       const data = await res.json();
@@ -237,7 +256,7 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
                 <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-40">Type</th>
                 <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-36">Start</th>
                 <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-36">End</th>
-                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-28">Day</th>
+                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-52">Day</th>
                 <th className="px-4 py-2.5 text-left font-medium text-neutral-600">Reason</th>
                 <th className="w-10" />
               </tr>
@@ -275,12 +294,14 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
                   </td>
                   <td className="px-4 py-2">
                     <select
-                      value={row.halfDay ? "half" : "full"}
-                      onChange={(e) => updateRow(row._key, "halfDay", e.target.value === "half")}
+                      value={!row.halfDay ? "full" : row.halfDayPeriod ?? "half"}
+                      onChange={(e) => updatePortion(row._key, e.target.value)}
                       className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                     >
                       <option value="full">Full Day</option>
-                      <option value="half">Half Day</option>
+                      <option value="MORNING">Half Day – Morning (9:30–1:30)</option>
+                      <option value="AFTERNOON">Half Day – Afternoon (2:30–6:30)</option>
+                      {row.halfDay && !row.halfDayPeriod && <option value="half">Half Day</option>}
                     </select>
                   </td>
                   <td className="px-4 py-2">

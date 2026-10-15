@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { dayPortionLabel } from "@/lib/leave-utils";
 import { LeaveReviewActions } from "./LeaveReviewActions";
 import { BackButton } from "@/components/ui/back-button";
 
@@ -109,7 +110,7 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                         <td className="px-3 py-2 text-neutral-700">{leaveTypeLabel[d.type] ?? d.type}</td>
                         <td className="px-3 py-2">
                           <Badge variant={d.halfDay ? "secondary" : "outline"}>
-                            {d.halfDay ? "Half Day" : "Full Day"}
+                            {dayPortionLabel(d.halfDay, d.halfDayPeriod)}
                           </Badge>
                         </td>
                         <td className="px-3 py-2 text-neutral-500 text-xs">{d.reason ?? "—"}</td>
