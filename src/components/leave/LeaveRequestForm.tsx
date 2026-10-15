@@ -229,7 +229,7 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
   const isEdit = mode === "edit";
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-6xl space-y-6">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" asChild className="h-8 w-8">
           <Link href="/leave"><ArrowLeft className="h-4 w-4" /></Link>
@@ -253,14 +253,14 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
           </p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[1000px] text-sm">
             <thead className="bg-neutral-50 border-b border-neutral-100">
               <tr>
-                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-40">Type</th>
-                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-36">Start</th>
-                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-36">End</th>
-                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-52">Day</th>
-                <th className="px-4 py-2.5 text-left font-medium text-neutral-600">Reason</th>
+                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-56">Type</th>
+                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-40">Start</th>
+                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-40">End</th>
+                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 w-72">Day</th>
+                <th className="px-4 py-2.5 text-left font-medium text-neutral-600 min-w-[240px]">Reason</th>
                 <th className="w-10" />
               </tr>
             </thead>
