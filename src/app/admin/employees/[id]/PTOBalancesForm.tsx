@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
 
-const LEAVE_TYPES = [
-  { type: "VACATION", label: "Vacation", hasTotal: true },
-  { type: "SICK", label: "Sick", hasTotal: true },
+// Comp days are earned and granted case by case, so they stay on the yearly balance row.
+const YEARLY_TYPES = [
   { type: "COMP_DAY", label: "Comp Day", hasTotal: true },
   { type: "PERSONAL", label: "Personal / Non-Paid Time", hasTotal: false },
   { type: "OTHER", label: "Other", hasTotal: false },
@@ -21,61 +20,54 @@ interface LeaveBalance {
   usedDays: number;
 }
 
+/** A Vacation or Sick line for the current work year (see getPtoSummary). */
+export interface WorkYearLine {
+  total: number;
+  used: number;
+  autoTotal: number;
+  autoUsed: number;
+}
+
 interface PTOBalancesFormProps {
   employeeId: string;
   balances: LeaveBalance[];
+  /** Null when the employee has no start date, so there is no work year. */
+  workYear: { cycleStart: string; label: string; vacation: WorkYearLine; sick: WorkYearLine } | null;
 }
 
-export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) {
+type Field = "vacationTotal" | "vacationUsed" | "sickTotal" | "sickUsed";
+
+export function PTOBalancesForm({ employeeId, balances, workYear }: PTOBalancesFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
-  const [renewing, setRenewing] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
   const year = new Date().getFullYear();
 
-  const [totals, setTotals] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {};
-    for (const lt of LEAVE_TYPES) {
-      const existing = balances.find((b) => b.type === lt.type);
-      initial[lt.type] = existing?.totalDays ?? 0;
-    }
-    return initial;
+  const auto: Record<Field, number> = {
+    vacationTotal: workYear?.vacation.autoTotal ?? 0,
+    vacationUsed: workYear?.vacation.autoUsed ?? 0,
+    sickTotal: workYear?.sick.autoTotal ?? 0,
+    sickUsed: workYear?.sick.autoUsed ?? 0,
+  };
+  const [workYearValues, setWorkYearValues] = useState<Record<Field, number>>({
+    vacationTotal: workYear?.vacation.total ?? 0,
+    vacationUsed: workYear?.vacation.used ?? 0,
+    sickTotal: workYear?.sick.total ?? 0,
+    sickUsed: workYear?.sick.used ?? 0,
   });
 
-  const [used, setUsed] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {};
-    for (const lt of LEAVE_TYPES) {
-      const existing = balances.find((b) => b.type === lt.type);
-      initial[lt.type] = existing?.usedDays ?? 0;
-    }
-    return initial;
-  });
+  const [totals, setTotals] = useState<Record<string, number>>(() =>
+    Object.fromEntries(YEARLY_TYPES.map((lt) => [lt.type, balances.find((b) => b.type === lt.type)?.totalDays ?? 0]))
+  );
+  const [used, setUsed] = useState<Record<string, number>>(() =>
+    Object.fromEntries(YEARLY_TYPES.map((lt) => [lt.type, balances.find((b) => b.type === lt.type)?.usedDays ?? 0]))
+  );
 
-  async function handleRenew() {
-    setRenewing(true);
-    setError("");
-    setSuccess(false);
-    try {
-      const res = await fetch("/api/admin/renew-leave-balances", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, year }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? "Failed to renew");
-      }
-      setSuccess(true);
-      startTransition(() => router.refresh());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setRenewing(false);
-    }
-  }
+  /** A value the admin left at the automatic number is saved as "automatic", so it keeps following the formula. */
+  const overrideOf = (f: Field) => (workYearValues[f] === auto[f] ? null : workYearValues[f]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -89,11 +81,18 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           year,
-          balances: LEAVE_TYPES.map((lt) => ({
+          balances: YEARLY_TYPES.map((lt) => ({
             type: lt.type,
             totalDays: lt.hasTotal ? totals[lt.type] : 0,
             usedDays: used[lt.type],
           })),
+          workYear: workYear && {
+            cycleStart: workYear.cycleStart,
+            lines: [
+              { type: "VACATION", totalDays: overrideOf("vacationTotal"), usedDays: overrideOf("vacationUsed") },
+              { type: "SICK", totalDays: overrideOf("sickTotal"), usedDays: overrideOf("sickUsed") },
+            ],
+          },
         }),
       });
 
@@ -111,12 +110,72 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
     }
   }
 
+  // A plain render function, not a component, so the inputs keep focus while typing.
+  function workYearInput(field: Field, label: string) {
+    const isManual = workYearValues[field] !== auto[field];
+    return (
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5">
+          <Input
+            id={`pto-${field}`}
+            type="number"
+            min="0"
+            max="365"
+            step="0.5"
+            value={workYearValues[field]}
+            onChange={(e) => setWorkYearValues((prev) => ({ ...prev, [field]: parseFloat(e.target.value) || 0 }))}
+            className="w-20"
+          />
+          <span className="text-xs text-neutral-500">{label}</span>
+        </div>
+        {isManual ? (
+          <button
+            type="button"
+            onClick={() => setWorkYearValues((prev) => ({ ...prev, [field]: auto[field] }))}
+            className="text-left text-[11px] text-amber-700 hover:underline"
+          >
+            Set by admin · use automatic ({auto[field]})
+          </button>
+        ) : (
+          <span className="text-[11px] text-neutral-400">Automatic</span>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <form onSubmit={handleSave} className="space-y-4">
+    <form onSubmit={handleSave} className="space-y-5">
+      {workYear ? (
+        <div className="space-y-3">
+          <p className="text-xs text-neutral-500">
+            Work year {workYear.label}. Renews automatically on the start-date anniversary. Totals follow the OLI
+            policy and used days count approved PTO requests, unless you change them here.
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Vacation</Label>
+              <div className="flex items-start gap-3">
+                {workYearInput("vacationTotal", "total")}
+                {workYearInput("vacationUsed", "used")}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Sick</Label>
+              <div className="flex items-start gap-3">
+                {workYearInput("sickTotal", "total")}
+                {workYearInput("sickUsed", "used")}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-neutral-500">Add a start date above to track Vacation and Sick by work year.</p>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
-        {LEAVE_TYPES.map((lt) => (
+        {YEARLY_TYPES.map((lt) => (
           <div key={lt.type} className="space-y-1.5">
-            <Label>{lt.label}</Label>
+            <Label>{lt.label} ({year})</Label>
             <div className="flex items-center gap-3">
               {lt.hasTotal && (
                 <div className="flex items-center gap-1.5">
@@ -154,23 +213,10 @@ export function PTOBalancesForm({ employeeId, balances }: PTOBalancesFormProps) 
       {error && <p className="text-sm text-red-600">{error}</p>}
       {success && <p className="text-sm text-green-600">PTO balances saved successfully.</p>}
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <Button type="submit" size="sm" disabled={loading || isPending}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-          Save PTO Balances
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleRenew}
-          disabled={renewing || isPending}
-          title={`Reset to new year allotment for ${year} based on years of service`}
-        >
-          {renewing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          Reset to {year} Allotment
-        </Button>
-      </div>
+      <Button type="submit" size="sm" disabled={loading || isPending}>
+        {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+        Save PTO Balances
+      </Button>
     </form>
   );
 }

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, CalendarDays, Printer } from "lucide-react";
+import { Plus, CalendarDays, Printer, AlertTriangle } from "lucide-react";
 import { formatDate, formatDateSlash } from "@/lib/utils";
-import { computePtoEntitlement } from "@/lib/leave-utils";
+import { getPtoSummary } from "@/lib/pto-balance.server";
 import { getFederalHolidays } from "@/lib/holidays";
 import { DeletePTOButton } from "@/components/leave/DeletePTOButton";
 
@@ -50,25 +50,20 @@ export default async function PTOPage() {
     db.employee.findUnique({ where: { id: session.user.id }, select: { startDate: true } }),
   ]);
 
-  const entitlement = employee?.startDate ? computePtoEntitlement(employee.startDate) : null;
-  const vacationBalance = balances.find((b) => b.type === "VACATION");
-  const sickBalance = balances.find((b) => b.type === "SICK");
-  const vacationUsed = vacationBalance?.usedDays ?? 0;
-  const sickUsed = sickBalance?.usedDays ?? 0;
+  // Vacation and Sick run on the employee's work year (start-date anniversary to anniversary).
+  // Comp days are earned and granted separately, so they stay on the yearly balance row.
+  const pto = await getPtoSummary(session.user.id, employee?.startDate ?? null);
+  const entitlement = pto?.entitlement ?? null;
+  const vacationTotal = pto?.vacation.total ?? 0;
+  const vacationUsed = pto?.vacation.used ?? 0;
+  const sickTotal = pto?.sick.total ?? 0;
+  const sickUsed = pto?.sick.used ?? 0;
+  const combinedTotal = vacationTotal + sickTotal;
   const holidayCount = getFederalHolidays(new Date().getFullYear()).length;
   const compDayBalance = balances.find((b) => b.type === "COMP_DAY");
-
-  // An admin-set total (saved as a nonzero value via the employee's PTO Balances
-  // form) always wins over the guideline formula — some cases are personal/manual.
-  // A stored 0 (or no row at all) means "not yet set", so it falls back to the
-  // auto-computed guideline entitlement.
-  const vacationTotal = vacationBalance && vacationBalance.totalDays > 0
-    ? vacationBalance.totalDays
-    : entitlement?.vacationTotal ?? 0;
-  const sickTotal = sickBalance && sickBalance.totalDays > 0
-    ? sickBalance.totalDays
-    : entitlement?.sickTotal ?? 0;
-  const combinedTotal = vacationTotal + sickTotal;
+  const workYear = pto
+    ? `${formatDate(pto.cycleStart)} – ${formatDate(new Date(pto.cycleEnd.getTime() - 86400000))}`
+    : null;
 
   // Stretch tiles to fill the row (matching the PTO Requests card width below)
   // regardless of whether there are 3 or 4 of them.
@@ -118,6 +113,7 @@ export default async function PTOPage() {
                 </p>
                 <p className="text-xs opacity-70">remaining days out of {combinedTotal} days</p>
               </div>
+              <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>
               <p className="text-xs opacity-70 mt-0.5">
                 {entitlement.nextRenewalTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
               </p>
@@ -136,6 +132,7 @@ export default async function PTOPage() {
                   <p className="text-3xl font-bold">{vacationTotal - vacationUsed}</p>
                   <p className="text-xs opacity-70">remaining days out of {vacationTotal} days</p>
                 </div>
+                <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>
                 <p className="text-xs opacity-70 mt-0.5">
                   {entitlement.nextVacationTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
                 </p>
@@ -150,6 +147,7 @@ export default async function PTOPage() {
                   <p className="text-3xl font-bold">{sickTotal - sickUsed}</p>
                   <p className="text-xs opacity-70">remaining days out of {sickTotal} days</p>
                 </div>
+                <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>
                 <p className="text-xs opacity-70 mt-0.5">
                   {entitlement.nextSickTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
                 </p>
@@ -173,6 +171,23 @@ export default async function PTOPage() {
           )}
         </div>
       </div>
+
+      {pto && pto.mismatches.length > 0 && (
+        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-medium">Your timesheet doesn&apos;t match your approved PTO</p>
+            <ul className="space-y-0.5">
+              {pto.mismatches.map((m) => (
+                <li key={m.date.toISOString()}>{m.message}</li>
+              ))}
+            </ul>
+            <p className="text-xs text-amber-700">
+              Your balance counts approved PTO requests. If your plans changed, ask your admin to update the request or your balance.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* PTO Requests */}
       <Card>

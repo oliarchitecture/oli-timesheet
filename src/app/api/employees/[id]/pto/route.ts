@@ -9,10 +9,40 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const { id } = await params;
-  const { year, balances } = await req.json() as {
+  const { year, balances, workYear } = await req.json() as {
     year: number;
     balances: { type: string; totalDays: number; usedDays: number }[];
+    /** Vacation/Sick for the employee's current work year; null fields mean "automatic". */
+    workYear?: {
+      cycleStart: string;
+      lines: { type: string; totalDays: number | null; usedDays: number | null }[];
+    } | null;
   };
+
+  if (workYear) {
+    const cycleStart = new Date(workYear.cycleStart);
+    if (isNaN(cycleStart.getTime())) {
+      return NextResponse.json({ error: "Invalid work year" }, { status: 400 });
+    }
+    const asNumber = (v: unknown) => (typeof v === "number" && isFinite(v) && v >= 0 ? v : null);
+    for (const line of workYear.lines) {
+      if (line.type !== "VACATION" && line.type !== "SICK") continue;
+      const type: "VACATION" | "SICK" = line.type;
+      const totalDays = asNumber(line.totalDays);
+      const usedDays = asNumber(line.usedDays);
+      const where = { employeeId_cycleStart_type: { employeeId: id, cycleStart, type } };
+      if (totalDays === null && usedDays === null) {
+        // Back to fully automatic: nothing to store.
+        await db.ptoOverride.deleteMany({ where: { employeeId: id, cycleStart, type } });
+      } else {
+        await db.ptoOverride.upsert({
+          where,
+          update: { totalDays, usedDays },
+          create: { employeeId: id, cycleStart, type, totalDays, usedDays },
+        });
+      }
+    }
+  }
 
   const results = await Promise.all(
     balances.map((b) =>

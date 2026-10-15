@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getPtoSummary } from "@/lib/pto-balance.server";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -83,14 +84,40 @@ export async function GET(req: Request) {
       include: { employee: { select: { name: true } } },
     });
 
-    const rows = balances.map((b) => ({
-      employee: b.employee.name,
-      type: b.type,
-      year: b.year,
-      total_days: b.totalDays,
-      used_days: b.usedDays,
-      remaining: b.totalDays - b.usedDays,
-    }));
+    // Vacation and Sick follow each person's work year (see getPtoSummary); the yearly rows
+    // still hold Comp Day, Personal and Other.
+    const rows: { employee: string; type: string; year: number | string; total_days: number; used_days: number; remaining: number }[] =
+      balances
+        .filter((b) => b.type !== "VACATION" && b.type !== "SICK")
+        .map((b) => ({
+          employee: b.employee.name,
+          type: b.type,
+          year: b.year,
+          total_days: b.totalDays,
+          used_days: b.usedDays,
+          remaining: b.totalDays - b.usedDays,
+        }));
+
+    const employees = await db.employee.findMany({
+      where: { isActive: true, ...(employeeId ? { id: employeeId } : {}) },
+      select: { id: true, name: true, startDate: true },
+    });
+    for (const emp of employees) {
+      const pto = await getPtoSummary(emp.id, emp.startDate);
+      if (!pto) continue;
+      const workYear = `${pto.cycleStart.toISOString().slice(0, 10)} – ${new Date(pto.cycleEnd.getTime() - 86400000).toISOString().slice(0, 10)}`;
+      for (const [type, line] of [["VACATION", pto.vacation], ["SICK", pto.sick]] as const) {
+        rows.push({
+          employee: emp.name,
+          type,
+          year: workYear,
+          total_days: line.total,
+          used_days: line.used,
+          remaining: line.total - line.used,
+        });
+      }
+    }
+    rows.sort((a, b) => a.employee.localeCompare(b.employee) || a.type.localeCompare(b.type));
 
     return NextResponse.json({ rows });
   }
