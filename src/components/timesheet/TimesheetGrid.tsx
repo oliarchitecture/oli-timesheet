@@ -76,7 +76,10 @@ interface TimesheetGridProps {
   officeAdminProjectId?: string | null;
   /** Ordered list of rows for this period (persisted). */
   rowOrder?: Array<{ projectId: string; phase: string }> | null;
-  /** Template rows to use when this week has no entries yet. */
+  /**
+   * Project/phase rows from the rest of the timesheet. An editable week lists them alongside
+   * its own rows, so rows entered in one week follow to the others; a locked week ignores them.
+   */
   templateRows?: Array<{ projectId: string; phase: string }>;
   /** Called whenever the row arrangement changes so the parent can persist it. */
   onRowOrderChange?: (rows: ActiveRow[]) => void;
@@ -169,22 +172,30 @@ function buildInitialRows(
   entries: EntryData[],
   templateRows: Array<{ projectId: string; phase: string }> | undefined,
   rowOrder: Array<{ projectId: string; phase: string }> | null | undefined,
-  officeAdminProjectId: string | null | undefined
+  officeAdminProjectId: string | null | undefined,
+  isReadOnly: boolean
 ): ActiveRow[] {
   let rows: ActiveRow[] = [];
 
-  if (entries.length > 0) {
-    // Derive rows from existing entries
-    for (const e of entries) {
-      const key = `${e.projectId}|${e.phase}`;
-      if (!rows.find((r) => rowKey(r) === key)) {
-        rows.push({ projectId: e.projectId, phase: e.phase });
+  // Rows this week has hours in
+  for (const e of entries) {
+    const key = `${e.projectId}|${e.phase}`;
+    if (!rows.find((r) => rowKey(r) === key)) {
+      rows.push({ projectId: e.projectId, phase: e.phase });
+    }
+  }
+
+  // Plus the timesheet's other rows, so projects and phases follow from week to week —
+  // even into a week that already has approved PTO in it. Locked weeks show only their own.
+  if (!isReadOnly && templateRows) {
+    for (const r of templateRows) {
+      if (!rows.find((x) => rowKey(x) === rowKey(r))) {
+        rows.push({ projectId: r.projectId, phase: r.phase });
       }
     }
-  } else if (templateRows && templateRows.length > 0) {
-    // Use template from sibling week
-    rows = templateRows.map((r) => ({ projectId: r.projectId, phase: r.phase }));
-  } else if (officeAdminProjectId) {
+  }
+
+  if (rows.length === 0 && officeAdminProjectId) {
     // Seed with Office Admin row as default
     rows = [{ projectId: officeAdminProjectId, phase: "" }];
   }
@@ -291,7 +302,7 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
 
   // ── Row & entry state ──────────────────────────────────────────────────────
 
-  const initialRows = buildInitialRows(entries, templateRows, rowOrder, officeAdminProjectId);
+  const initialRows = buildInitialRows(entries, templateRows, rowOrder, officeAdminProjectId, isReadOnly);
   const initialEntries = buildInitialEntries(entries, weekStart, officeAdminProjectId, initialRows.some((r) => r.projectId === officeAdminProjectId));
 
   const [activeRows, setActiveRows] = useState<ActiveRow[]>(initialRows);
@@ -374,9 +385,10 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
         e.projectId === row.projectId && e.phase === row.phase ? { ...e, phase: newPhase } : e
       )
     );
-    setActiveRows((prev) =>
-      prev.map((r) => rowKey(r) === oldKey ? { ...r, phase: newPhase } : r)
-    );
+    const newRows = activeRows.map((r) => rowKey(r) === oldKey ? { ...r, phase: newPhase } : r);
+    setActiveRows(newRows);
+    // Save the phase into the timesheet's row list too, so the other weeks pick it up.
+    onRowOrderChange?.(newRows);
     setIsDirty(true);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {

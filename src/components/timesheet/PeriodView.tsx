@@ -103,6 +103,39 @@ function lockedDaysFor(week: WeekData, viewing: PeriodRange): Record<string, str
   );
 }
 
+type Row = { projectId: string; phase: string };
+
+/**
+ * The project/phase rows every week of this timesheet starts with, so rows entered in one
+ * week follow to the others. The saved row order is the list; a row saved before its phase
+ * was picked (blank phase) takes the phases that project actually has in other weeks.
+ * Timesheets that never saved a row order fall back to the rows in their other weeks.
+ */
+function carriedRowsFor(rowOrder: Row[] | null | undefined, otherWeeksEntries: EntryData[]): Row[] {
+  const rows: Row[] = [];
+  const seen = new Set<string>();
+  const push = (r: Row) => {
+    const key = `${r.projectId}|${r.phase}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push({ projectId: r.projectId, phase: r.phase });
+  };
+
+  if (!rowOrder || rowOrder.length === 0) {
+    for (const e of otherWeeksEntries) push(e);
+    return rows;
+  }
+
+  for (const r of rowOrder) {
+    const phases = r.phase === ""
+      ? [...new Set(otherWeeksEntries.filter((e) => e.projectId === r.projectId && e.phase !== "").map((e) => e.phase))]
+      : [];
+    if (phases.length > 0) phases.forEach((phase) => push({ projectId: r.projectId, phase }));
+    else push(r);
+  }
+  return rows;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function PeriodView({
@@ -123,6 +156,10 @@ export function PeriodView({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const gridRef = useRef<TimesheetGridHandle>(null);
+
+  // Kept locally so a row added or re-phased in one week is there when switching to the next,
+  // without waiting for the save to round-trip through the server.
+  const [currentRowOrder, setCurrentRowOrder] = useState<Row[] | null | undefined>(rowOrder);
 
   // Local cache of entries per week — updated when TimesheetGrid saves successfully.
   // This prevents data loss when switching weeks (TimesheetGrid remounts via key=weekId
@@ -361,28 +398,14 @@ export function PeriodView({
           periodId={periodId}
           lockedDays={lockedDays}
           officeAdminProjectId={officeAdminProjectId}
-          rowOrder={rowOrder}
-          templateRows={
-            (weekEntriesCache[selectedWeek.id] ?? selectedWeek.entries).length === 0
-              ? (() => {
-                  const seen = new Set<string>();
-                  const rows: Array<{ projectId: string; phase: string }> = [];
-                  // Look through cached entries from sibling weeks first, fall back to server entries
-                  for (const w of weeks.filter((w) => w.id !== selectedWeek.id)) {
-                    const wEntries = weekEntriesCache[w.id] ?? w.entries;
-                    for (const e of wEntries) {
-                      if (!seen.has(e.projectId)) {
-                        seen.add(e.projectId);
-                        rows.push({ projectId: e.projectId, phase: "" });
-                      }
-                    }
-                  }
-                  return rows;
-                })()
-              : undefined
-          }
+          rowOrder={currentRowOrder}
+          templateRows={carriedRowsFor(
+            currentRowOrder,
+            weeks.filter((w) => w.id !== selectedWeek.id).flatMap((w) => weekEntriesCache[w.id] ?? w.entries)
+          )}
           onRowOrderChange={(newOrder) => {
             if (!periodId) return;
+            setCurrentRowOrder(newOrder);
             fetch(`/api/report-periods/${periodId}/row-order`, {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
