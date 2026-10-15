@@ -169,13 +169,12 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
     );
   }
 
-  /** The Day select sets halfDay and halfDayPeriod together. "half" keeps an older half day as it was. */
+  /** The Day select sets halfDay and halfDayPeriod together. */
   function updatePortion(key: string, value: string) {
     setRows((prev) =>
       prev.map((r) => {
         if (r._key !== key) return r;
         if (value === "full") return { ...r, halfDay: false, halfDayPeriod: null };
-        if (value === "half") return { ...r, halfDay: true, halfDayPeriod: null };
         return { ...r, halfDay: true, halfDayPeriod: value as HalfDayPeriod };
       })
     );
@@ -193,6 +192,10 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
   async function handleSubmit() {
     if (days.length === 0) {
       setError("Add at least one valid date range.");
+      return;
+    }
+    if (days.some((d) => d.halfDay && !d.halfDayPeriod)) {
+      setError("Choose morning or afternoon for each half day.");
       return;
     }
     setLoading(true);
@@ -294,14 +297,17 @@ export function LeaveRequestForm({ mode, leaveId, initialDays }: LeaveRequestFor
                   </td>
                   <td className="px-4 py-2">
                     <select
-                      value={!row.halfDay ? "full" : row.halfDayPeriod ?? "half"}
+                      value={!row.halfDay ? "full" : row.halfDayPeriod ?? ""}
                       onChange={(e) => updatePortion(row._key, e.target.value)}
                       className="w-full rounded border border-neutral-300 bg-white px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                     >
                       <option value="full">Full Day</option>
                       <option value="MORNING">Half Day – Morning (9:30–1:30)</option>
                       <option value="AFTERNOON">Half Day – Afternoon (2:30–6:30)</option>
-                      {row.halfDay && !row.halfDayPeriod && <option value="half">Half Day</option>}
+                      {row.halfDay && !row.halfDayPeriod && (
+                        // Older half days (and drafts saved before AM/PM existed) must pick a side.
+                        <option value="" disabled>Choose morning or afternoon</option>
+                      )}
                     </select>
                   </td>
                   <td className="px-4 py-2">
