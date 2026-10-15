@@ -85,6 +85,11 @@ export default async function PTOPage() {
           <h2 className="text-xl font-semibold text-neutral-900">My PTO</h2>
           <p className="text-sm text-neutral-500 mt-0.5">Manage PTO requests and view balances</p>
           {workYear && <p className="text-sm font-semibold text-neutral-700 mt-2">Work year {workYear}</p>}
+          <p className="text-xs text-neutral-400 mt-1">
+            *If you see any mistakes in your PTO days, please{" "}
+            <Link href="/requests/new" className="underline hover:text-neutral-600">send a request</Link>{" "}
+            to the admin to change them.
+          </p>
         </div>
         <Button asChild>
           <Link href="/leave/new">
