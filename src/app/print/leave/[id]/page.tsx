@@ -106,6 +106,7 @@ export default async function PrintLeaveRequestPage({
           <p className="text-neutral-500">Note</p>
           {request.workedDays.map((w) => (
             <p key={w.id} className="text-neutral-900">
+              <span className="font-bold">NOTE:</span>{" "}
               {workedDayNote(w.date, request.days.find((d) => d.date.getTime() === w.date.getTime()), w.createdAt)}
             </p>
           ))}

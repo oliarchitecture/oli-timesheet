@@ -122,6 +122,7 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                         {workedOn(d.date) && (
                           <tr className="bg-amber-50">
                             <td colSpan={4} className="px-3 py-1.5 text-xs text-amber-800">
+                              <span className="font-bold">NOTE:</span>{" "}
                               {workedDayNote(d.date, d, workedOn(d.date)!.createdAt)} It stays on the approved
                               request but does not count against their balance.
                             </td>

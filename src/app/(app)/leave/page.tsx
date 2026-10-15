@@ -221,7 +221,8 @@ export default async function PTOPage() {
                         <p className="text-xs text-amber-700 mt-0.5">Comment: {lr.reviewComment}</p>
                       )}
                       {lr.workedDays.map((w) => (
-                        <p key={w.id} className="text-xs text-neutral-500 mt-0.5">
+                        <p key={w.id} className="text-xs text-amber-700 mt-0.5">
+                          <span className="font-bold">NOTE:</span>{" "}
                           {workedDayNote(w.date, lr.days.find((d) => d.date.getTime() === w.date.getTime()), w.createdAt)}
                         </p>
                       ))}
