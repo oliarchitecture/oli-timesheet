@@ -84,6 +84,7 @@ export default async function PTOPage() {
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">My PTO</h2>
           <p className="text-sm text-neutral-500 mt-0.5">Manage PTO requests and view balances</p>
+          {workYear && <p className="text-sm text-neutral-500">Work year {workYear}</p>}
         </div>
         <Button asChild>
           <Link href="/leave/new">
@@ -117,7 +118,6 @@ export default async function PTOPage() {
                 </p>
                 <p className="text-xs opacity-70">remaining days out of {combinedTotal} days</p>
               </div>
-              <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>
               <p className="text-xs opacity-70 mt-0.5">
                 {entitlement.nextRenewalTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
               </p>
@@ -136,7 +136,6 @@ export default async function PTOPage() {
                   <p className="text-3xl font-bold">{vacationTotal - vacationUsed}</p>
                   <p className="text-xs opacity-70">remaining days out of {vacationTotal} days</p>
                 </div>
-                <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>
                 <p className="text-xs opacity-70 mt-0.5">
                   {entitlement.nextVacationTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
                 </p>
@@ -151,7 +150,6 @@ export default async function PTOPage() {
                   <p className="text-3xl font-bold">{sickTotal - sickUsed}</p>
                   <p className="text-xs opacity-70">remaining days out of {sickTotal} days</p>
                 </div>
-                <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>
                 <p className="text-xs opacity-70 mt-0.5">
                   {entitlement.nextSickTotal} days to be renewed on {formatDateSlash(entitlement.nextRenewalDate)}
                 </p>
@@ -170,7 +168,6 @@ export default async function PTOPage() {
             <p className="text-3xl font-bold">{compTotal - compUsed}</p>
             <p className="text-xs opacity-70">remaining days out of {compTotal} days</p>
           </div>
-          {workYear && <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>}
           {compUsed > 0 && <p className="text-xs opacity-60 mt-1">{compUsed} used</p>}
         </div>
       </div>
