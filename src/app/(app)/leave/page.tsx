@@ -84,7 +84,7 @@ export default async function PTOPage() {
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">My PTO</h2>
           <p className="text-sm text-neutral-500 mt-0.5">Manage PTO requests and view balances</p>
-          {workYear && <p className="text-sm text-neutral-500">Work year {workYear}</p>}
+          {workYear && <p className="text-sm font-semibold text-neutral-700 mt-2">Work year {workYear}</p>}
         </div>
         <Button asChild>
           <Link href="/leave/new">
