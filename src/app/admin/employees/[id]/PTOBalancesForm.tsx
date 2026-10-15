@@ -7,9 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
 
-// Comp days are earned and granted case by case, so they stay on the yearly balance row.
+// Vacation, Sick and Comp Day run on the work year; these two stay on the yearly balance row.
 const YEARLY_TYPES = [
-  { type: "COMP_DAY", label: "Comp Day", hasTotal: true },
   { type: "PERSONAL", label: "Personal / Non-Paid Time", hasTotal: false },
   { type: "OTHER", label: "Other", hasTotal: false },
 ];
@@ -32,10 +31,10 @@ interface PTOBalancesFormProps {
   employeeId: string;
   balances: LeaveBalance[];
   /** Null when the employee has no start date, so there is no work year. */
-  workYear: { cycleStart: string; label: string; vacation: WorkYearLine; sick: WorkYearLine } | null;
+  workYear: { cycleStart: string; label: string; vacation: WorkYearLine; sick: WorkYearLine; comp: WorkYearLine } | null;
 }
 
-type Field = "vacationTotal" | "vacationUsed" | "sickTotal" | "sickUsed";
+type Field = "vacationTotal" | "vacationUsed" | "sickTotal" | "sickUsed" | "compTotal" | "compUsed";
 
 export function PTOBalancesForm({ employeeId, balances, workYear }: PTOBalancesFormProps) {
   const router = useRouter();
@@ -51,12 +50,16 @@ export function PTOBalancesForm({ employeeId, balances, workYear }: PTOBalancesF
     vacationUsed: workYear?.vacation.autoUsed ?? 0,
     sickTotal: workYear?.sick.autoTotal ?? 0,
     sickUsed: workYear?.sick.autoUsed ?? 0,
+    compTotal: workYear?.comp.autoTotal ?? 0,
+    compUsed: workYear?.comp.autoUsed ?? 0,
   };
   const [workYearValues, setWorkYearValues] = useState<Record<Field, number>>({
     vacationTotal: workYear?.vacation.total ?? 0,
     vacationUsed: workYear?.vacation.used ?? 0,
     sickTotal: workYear?.sick.total ?? 0,
     sickUsed: workYear?.sick.used ?? 0,
+    compTotal: workYear?.comp.total ?? 0,
+    compUsed: workYear?.comp.used ?? 0,
   });
 
   const [totals, setTotals] = useState<Record<string, number>>(() =>
@@ -91,6 +94,7 @@ export function PTOBalancesForm({ employeeId, balances, workYear }: PTOBalancesF
             lines: [
               { type: "VACATION", totalDays: overrideOf("vacationTotal"), usedDays: overrideOf("vacationUsed") },
               { type: "SICK", totalDays: overrideOf("sickTotal"), usedDays: overrideOf("sickUsed") },
+              { type: "COMP_DAY", totalDays: overrideOf("compTotal"), usedDays: overrideOf("compUsed") },
             ],
           },
         }),
@@ -148,8 +152,9 @@ export function PTOBalancesForm({ employeeId, balances, workYear }: PTOBalancesF
       {workYear ? (
         <div className="space-y-3">
           <p className="text-xs text-neutral-500">
-            Work year {workYear.label}. Renews automatically on the start-date anniversary. Totals follow the OLI
-            policy and used days count approved PTO requests, unless you change them here.
+            Work year {workYear.label}. Renews automatically on the start-date anniversary. Vacation and Sick totals
+            follow the OLI policy, Comp Day starts at 0 for you to grant, and used days count approved PTO requests,
+            unless you change them here.
           </p>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
@@ -164,6 +169,13 @@ export function PTOBalancesForm({ employeeId, balances, workYear }: PTOBalancesF
               <div className="flex items-start gap-3">
                 {workYearInput("sickTotal", "total")}
                 {workYearInput("sickUsed", "used")}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Comp Day</Label>
+              <div className="flex items-start gap-3">
+                {workYearInput("compTotal", "total")}
+                {workYearInput("compUsed", "used")}
               </div>
             </div>
           </div>

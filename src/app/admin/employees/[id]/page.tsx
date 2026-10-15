@@ -38,6 +38,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     label: `${formatDate(pto.cycleStart)} – ${formatDate(new Date(pto.cycleEnd.getTime() - 86400000))}`,
     vacation: pto.vacation,
     sick: pto.sick,
+    comp: pto.comp,
   };
 
   return (

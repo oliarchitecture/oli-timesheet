@@ -12,7 +12,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const { year, balances, workYear } = await req.json() as {
     year: number;
     balances: { type: string; totalDays: number; usedDays: number }[];
-    /** Vacation/Sick for the employee's current work year; null fields mean "automatic". */
+    /** Vacation/Sick/Comp Day for the employee's current work year; null fields mean "automatic". */
     workYear?: {
       cycleStart: string;
       lines: { type: string; totalDays: number | null; usedDays: number | null }[];
@@ -26,8 +26,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
     const asNumber = (v: unknown) => (typeof v === "number" && isFinite(v) && v >= 0 ? v : null);
     for (const line of workYear.lines) {
-      if (line.type !== "VACATION" && line.type !== "SICK") continue;
-      const type: "VACATION" | "SICK" = line.type;
+      if (line.type !== "VACATION" && line.type !== "SICK" && line.type !== "COMP_DAY") continue;
+      const type: "VACATION" | "SICK" | "COMP_DAY" = line.type;
       const totalDays = asNumber(line.totalDays);
       const usedDays = asNumber(line.usedDays);
       const where = { employeeId_cycleStart_type: { employeeId: id, cycleStart, type } };

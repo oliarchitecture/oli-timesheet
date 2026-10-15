@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, CalendarDays, Printer, AlertTriangle } from "lucide-react";
 import { formatDate, formatDateSlash } from "@/lib/utils";
 import { getPtoSummary } from "@/lib/pto-balance.server";
+import { workedDayNote } from "@/lib/leave-utils";
 import { getFederalHolidays } from "@/lib/holidays";
 import { DeletePTOButton } from "@/components/leave/DeletePTOButton";
 import { WorkedDayButton } from "@/components/leave/WorkedDayButton";
@@ -51,8 +52,7 @@ export default async function PTOPage() {
     db.employee.findUnique({ where: { id: session.user.id }, select: { startDate: true } }),
   ]);
 
-  // Vacation and Sick run on the employee's work year (start-date anniversary to anniversary).
-  // Comp days are earned and granted separately, so they stay on the yearly balance row.
+  // Vacation, Sick and Comp Day run on the employee's work year (start-date anniversary to anniversary).
   const pto = await getPtoSummary(session.user.id, employee?.startDate ?? null);
   const entitlement = pto?.entitlement ?? null;
   const vacationTotal = pto?.vacation.total ?? 0;
@@ -61,7 +61,10 @@ export default async function PTOPage() {
   const sickUsed = pto?.sick.used ?? 0;
   const combinedTotal = vacationTotal + sickTotal;
   const holidayCount = getFederalHolidays(new Date().getFullYear()).length;
-  const compDayBalance = balances.find((b) => b.type === "COMP_DAY");
+  // Without a start date there is no work year, so Comp Day falls back to the yearly row.
+  const yearlyComp = balances.find((b) => b.type === "COMP_DAY");
+  const compTotal = pto ? pto.comp.total : yearlyComp?.totalDays ?? 0;
+  const compUsed = pto ? pto.comp.used : yearlyComp?.usedDays ?? 0;
   const workYear = pto
     ? `${formatDate(pto.cycleStart)} – ${formatDate(new Date(pto.cycleEnd.getTime() - 86400000))}`
     : null;
@@ -164,12 +167,11 @@ export default async function PTOPage() {
             <p className="text-xs font-medium">Comp Day</p>
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
-            <p className="text-3xl font-bold">{(compDayBalance?.totalDays ?? 0) - (compDayBalance?.usedDays ?? 0)}</p>
-            <p className="text-xs opacity-70">remaining days out of {compDayBalance?.totalDays ?? 0} days</p>
+            <p className="text-3xl font-bold">{compTotal - compUsed}</p>
+            <p className="text-xs opacity-70">remaining days out of {compTotal} days</p>
           </div>
-          {(compDayBalance?.usedDays ?? 0) > 0 && (
-            <p className="text-xs opacity-60 mt-1">{compDayBalance!.usedDays} used</p>
-          )}
+          {workYear && <p className="text-xs opacity-70 mt-0.5">Work year {workYear}</p>}
+          {compUsed > 0 && <p className="text-xs opacity-60 mt-1">{compUsed} used</p>}
         </div>
       </div>
 
@@ -188,7 +190,8 @@ export default async function PTOPage() {
             </ul>
             <p className="text-xs text-amber-700">
               Your balance counts approved PTO requests. If you worked an approved day, click &ldquo;I worked this day&rdquo;: a note
-              is added to the request, the day stops counting, and your admin is told. Otherwise, check your timesheet for that day.
+              is added, the day will not count, and your admin will receive an email notification. Otherwise, check your
+              timesheet for that day.
             </p>
           </div>
         </div>
@@ -220,11 +223,11 @@ export default async function PTOPage() {
                       {lr.reviewComment && (
                         <p className="text-xs text-amber-700 mt-0.5">Comment: {lr.reviewComment}</p>
                       )}
-                      {lr.workedDays.length > 0 && (
-                        <p className="text-xs text-neutral-500 mt-0.5">
-                          Worked instead, not counted: {lr.workedDays.map((w) => formatDate(w.date)).join(", ")}
+                      {lr.workedDays.map((w) => (
+                        <p key={w.id} className="text-xs text-neutral-500 mt-0.5">
+                          {workedDayNote(w.date, lr.days.find((d) => d.date.getTime() === w.date.getTime()), w.createdAt)}
                         </p>
-                      )}
+                      ))}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant={statusVariant[lr.status] ?? "secondary"}>{statusLabel[lr.status] ?? lr.status}</Badge>

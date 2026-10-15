@@ -59,8 +59,8 @@ export function WorkedDayButton({ dayId }: { dayId: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Report this day as worked?</AlertDialogTitle>
             <AlertDialogDescription>
-              Your approved request stays as it is. A note is added to it, this day stops counting against your
-              balance, and your admin is notified. Only an admin can undo this.
+              Your approved request stays as it is. A note is added, the day will not count, and your admin will
+              receive an email notification. Only an admin can undo this.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -1,4 +1,5 @@
 import { LeaveType, HalfDayPeriod } from "@prisma/client";
+import { formatDate } from "@/lib/utils";
 
 /**
  * The stored half of the day for a leave day: only a half day can carry one, and anything
@@ -7,6 +8,28 @@ import { LeaveType, HalfDayPeriod } from "@prisma/client";
 export function halfDayPeriodFor(halfDay: boolean, period: unknown): HalfDayPeriod | null {
   if (!halfDay) return null;
   return period === "MORNING" || period === "AFTERNOON" ? period : null;
+}
+
+const DAY_KIND_LABEL: Record<LeaveType, string> = {
+  VACATION: "Vacation", SICK: "Sick", COMP_DAY: "Comp", PERSONAL: "Personal", OTHER: "Other", MIXED: "PTO",
+};
+
+/**
+ * The note shown on an approved request for a day the employee reported working, e.g.
+ * "Sep 14, 2026 was reported by the employee as a work day instead of a Vacation (V) day as
+ * approved. Reported on Oct 15, 2026."
+ */
+export function workedDayNote(
+  date: Date,
+  approvedDay: { type: LeaveType; halfDay: boolean } | undefined,
+  reportedAt: Date
+): string {
+  const kind = approvedDay
+    ? approvedDay.halfDay
+      ? `a half day off (${absenceCodeForDay(approvedDay.type, true)})`
+      : `a ${DAY_KIND_LABEL[approvedDay.type]} (${absenceCodeForDay(approvedDay.type, false)}) day`
+    : "a PTO day";
+  return `${formatDate(date)} was reported by the employee as a work day instead of ${kind} as approved. Reported on ${formatDate(reportedAt)}.`;
 }
 
 /** "Full Day", "Half Day (AM)", "Half Day (PM)", or plain "Half Day" for older requests. */

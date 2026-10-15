@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { notFound, redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
-import { dayPortionLabel } from "@/lib/leave-utils";
+import { dayPortionLabel, workedDayNote } from "@/lib/leave-utils";
 import { PrintButton } from "@/components/leave/PrintButton";
 
 const leaveTypeLabel: Record<string, string> = {
@@ -104,9 +104,13 @@ export default async function PrintLeaveRequestPage({
       {request.workedDays.length > 0 && (
         <div className="mb-8 text-sm">
           <p className="text-neutral-500">Note</p>
-          <p className="text-neutral-900">
-            Employee reported working {request.workedDays.map((w) => formatDate(w.date)).join(", ")}. The approved
-            request is unchanged; {request.workedDays.length === 1 ? "that day is" : "those days are"} not counted against the PTO balance.
+          {request.workedDays.map((w) => (
+            <p key={w.id} className="text-neutral-900">
+              {workedDayNote(w.date, request.days.find((d) => d.date.getTime() === w.date.getTime()), w.createdAt)}
+            </p>
+          ))}
+          <p className="text-neutral-500 text-xs mt-1">
+            The approved request is unchanged; reported work days do not count against the PTO balance.
           </p>
         </div>
       )}

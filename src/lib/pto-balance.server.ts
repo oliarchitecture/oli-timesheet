@@ -33,6 +33,8 @@ export interface PtoSummary {
   cycleEnd: Date;
   vacation: PtoLine;
   sick: PtoLine;
+  /** Comp days granted by an admin for this work year (0 until set) and approved Comp Day requests. */
+  comp: PtoLine;
   /** Days where the timesheet disagrees with approved PTO, up to today. */
   mismatches: PtoMismatch[];
 }
@@ -62,7 +64,7 @@ function dayLabel(date: Date): string {
 }
 
 /**
- * Vacation and Sick balances for an employee's current work year — the year runs from their
+ * Vacation, Sick and Comp Day balances for an employee's current work year — the year runs from their
  * start-date anniversary to the next one, so balances renew on that day with no admin action.
  * Used days come from approved PTO requests in the work year; totals come from the OLI policy
  * formula. Either can be overridden by an admin for that work year, and the override wins.
@@ -116,7 +118,7 @@ export async function getPtoSummary(
   const usedOf = (type: string) =>
     takenDays.filter((d) => d.type === type).reduce((sum, d) => sum + (d.halfDay ? 0.5 : 1), 0);
 
-  function line(type: "VACATION" | "SICK", autoTotal: number): PtoLine {
+  function line(type: "VACATION" | "SICK" | "COMP_DAY", autoTotal: number): PtoLine {
     const o = overrides.find((x) => x.type === type);
     const autoUsed = usedOf(type);
     return {
@@ -180,6 +182,7 @@ export async function getPtoSummary(
     cycleEnd,
     vacation: line("VACATION", entitlement.vacationTotal),
     sick: line("SICK", entitlement.sickTotal),
+    comp: line("COMP_DAY", 0),
     mismatches,
   };
 }

@@ -5,7 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
-import { dayPortionLabel } from "@/lib/leave-utils";
+import { dayPortionLabel, workedDayNote } from "@/lib/leave-utils";
 import { LeaveReviewActions } from "./LeaveReviewActions";
 import { BackButton } from "@/components/ui/back-button";
 
@@ -122,8 +122,8 @@ export default async function AdminLeaveReviewPage({ params }: { params: Promise
                         {workedOn(d.date) && (
                           <tr className="bg-amber-50">
                             <td colSpan={4} className="px-3 py-1.5 text-xs text-amber-800">
-                              Employee reported working this day (noted {formatDate(workedOn(d.date)!.createdAt)}).
-                              It stays on the approved request but no longer counts against their balance.
+                              {workedDayNote(d.date, d, workedOn(d.date)!.createdAt)} It stays on the approved
+                              request but does not count against their balance.
                             </td>
                           </tr>
                         )}

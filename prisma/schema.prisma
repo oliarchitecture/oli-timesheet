@@ -211,14 +211,15 @@ enum LeaveStatus {
   REVISION_REQUESTED
 }
 
-/// An admin's manual Vacation/Sick numbers for one work year (start-date anniversary to
+/// An admin's manual Vacation/Sick/Comp Day numbers for one work year (start-date anniversary to
 /// anniversary). A null field means "automatic": total from the OLI policy formula, used from
-/// approved PTO requests in that work year. A set field wins over the automatic value.
+/// approved PTO requests in that work year (Comp Day total is 0 until an admin grants some).
+/// A set field wins over the automatic value.
 model PtoOverride {
   id         String    @id @default(cuid())
   employeeId String
   cycleStart DateTime  // first day of the work year (normalized to 00:00:00 UTC)
-  type       LeaveType // VACATION or SICK
+  type       LeaveType // VACATION, SICK or COMP_DAY
   totalDays  Float?
   usedDays   Float?
   updatedAt  DateTime  @updatedAt

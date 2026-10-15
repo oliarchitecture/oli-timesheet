@@ -84,11 +84,11 @@ export async function GET(req: Request) {
       include: { employee: { select: { name: true } } },
     });
 
-    // Vacation and Sick follow each person's work year (see getPtoSummary); the yearly rows
-    // still hold Comp Day, Personal and Other.
+    // Vacation, Sick and Comp Day follow each person's work year (see getPtoSummary); the
+    // yearly rows still hold Personal and Other.
     const rows: { employee: string; type: string; year: number | string; total_days: number; used_days: number; remaining: number }[] =
       balances
-        .filter((b) => b.type !== "VACATION" && b.type !== "SICK")
+        .filter((b) => b.type !== "VACATION" && b.type !== "SICK" && b.type !== "COMP_DAY")
         .map((b) => ({
           employee: b.employee.name,
           type: b.type,
@@ -106,7 +106,7 @@ export async function GET(req: Request) {
       const pto = await getPtoSummary(emp.id, emp.startDate);
       if (!pto) continue;
       const workYear = `${pto.cycleStart.toISOString().slice(0, 10)} – ${new Date(pto.cycleEnd.getTime() - 86400000).toISOString().slice(0, 10)}`;
-      for (const [type, line] of [["VACATION", pto.vacation], ["SICK", pto.sick]] as const) {
+      for (const [type, line] of [["VACATION", pto.vacation], ["SICK", pto.sick], ["COMP_DAY", pto.comp]] as const) {
         rows.push({
           employee: emp.name,
           type,
