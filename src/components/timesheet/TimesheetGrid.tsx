@@ -448,7 +448,8 @@ export const TimesheetGrid = forwardRef<TimesheetGridHandle, TimesheetGridProps>
   }
 
   function getRowTotal(projectId: string, phase: string) {
-    return weekDays.reduce((sum, day) => sum + getRowHours(projectId, phase, day), 0);
+    // Days that belong to another timesheet are shown for context but don't count here.
+    return weekDays.reduce((sum, day) => (lockedBy(day) ? sum : sum + getRowHours(projectId, phase, day)), 0);
   }
 
   function getDayTotal(date: Date) {
